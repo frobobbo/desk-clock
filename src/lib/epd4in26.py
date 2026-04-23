@@ -29,28 +29,30 @@ _SET_RAMX_ADDR              = 0x44
 _SET_RAMY_ADDR              = 0x45
 _BORDER_WAVEFORM_CTRL       = 0x3C
 _TEMP_SENSOR_CTRL           = 0x18
-_DISPLAY_UPDATE_CTRL1       = 0x21
 _DISPLAY_UPDATE_CTRL2       = 0x22
 _MASTER_ACTIVATION          = 0x20
 _WRITE_RAM_BW               = 0x24
 _SET_RAMX_COUNTER           = 0x4E
 _SET_RAMY_COUNTER           = 0x4F
+_WRITE_RAM_RED              = 0x26
 
 
 class EPD4in26:
-    def __init__(self, spi, cs, dc, rst, busy):
+    def __init__(self, spi, cs, dc, rst, busy, busy_active=1, busy_timeout_ms=8000):
         self.spi  = spi
         self.cs   = cs
         self.dc   = dc
         self.rst  = rst
         self.busy = busy
+        self.busy_active = 1 if busy_active else 0
+        self.busy_timeout_ms = busy_timeout_ms
 
         self.width  = EPD_WIDTH
         self.height = EPD_HEIGHT
 
         self.buf = bytearray(EPD_WIDTH * EPD_HEIGHT // 8)
         self.fb  = framebuf.FrameBuffer(self.buf, EPD_WIDTH, EPD_HEIGHT,
-                                        framebuf.MONO_HLSB)
+                                        framebuf.MONO_HMSB)
 
     # ── low-level helpers ──────────────────────────────────────────────────
 
@@ -69,64 +71,84 @@ class EPD4in26:
             self.spi.write(bytes(data))
         self.cs.value(1)
 
-    def _wait(self):
-        while self.busy.value() == 1:
+    def _wait(self, label="operation"):
+        start = time.ticks_ms()
+        while self.busy.value() == self.busy_active:
+            if time.ticks_diff(time.ticks_ms(), start) > self.busy_timeout_ms:
+                raise RuntimeError(
+                    "EPD busy timeout during {} (busy pin stuck at {}, active={})".format(
+                        label, self.busy.value(), self.busy_active
+                    )
+                )
             time.sleep_ms(10)
+        time.sleep_ms(20)
 
     def _hw_reset(self):
-        self.rst.value(1); time.sleep_ms(10)
-        self.rst.value(0); time.sleep_ms(10)
-        self.rst.value(1); time.sleep_ms(10)
+        self.rst.value(1); time.sleep_ms(20)
+        self.rst.value(0); time.sleep_ms(2)
+        self.rst.value(1); time.sleep_ms(200)
 
     # ── public API ─────────────────────────────────────────────────────────
 
     def init(self):
         self._hw_reset()
+        self._wait("post-reset idle wait")
 
-        self._cmd(_SWRESET)          # software reset
-        self._wait()
-
-        # Driver output: height-1 = 0x01DF (479)
-        self._cmd(_DRIVER_OUTPUT_CTRL)
-        self._data([0xDF, 0x01, 0x00])
-
-        # Data entry: X-increment, Y-increment → left-to-right, top-to-bottom
-        self._cmd(_DATA_ENTRY_MODE)
-        self._data(0x03)
-
-        # RAM X range: 0 … 99  (800 px / 8 = 100 bytes per row, 0x00…0x63)
-        self._cmd(_SET_RAMX_ADDR)
-        self._data([0x00, 0x63])
-
-        # RAM Y range: 0 … 479
-        self._cmd(_SET_RAMY_ADDR)
-        self._data([0x00, 0x00, 0xDF, 0x01])
-
-        self._cmd(_BORDER_WAVEFORM_CTRL)
-        self._data(0x05)             # follow output for VBD
+        self._cmd(_SWRESET)
+        self._wait("software reset")
 
         self._cmd(_TEMP_SENSOR_CTRL)
-        self._data(0x80)             # use built-in temperature sensor
+        self._data(0x80)
 
-        self._cmd(_DISPLAY_UPDATE_CTRL1)
-        self._data([0x00, 0x80])
+        self._cmd(0x0C)              # soft start
+        self._data([0xAE, 0xC7, 0xC3, 0xC0, 0x80])
 
-        # Load OTP waveform then initialise display
-        self._cmd(_DISPLAY_UPDATE_CTRL2)
-        self._data(0xB1)
-        self._cmd(_MASTER_ACTIVATION)
-        self._wait()
+        self._cmd(_DRIVER_OUTPUT_CTRL)
+        self._data([(EPD_HEIGHT - 1) % 256, (EPD_HEIGHT - 1) // 256, 0x02])
+
+        self._cmd(_BORDER_WAVEFORM_CTRL)
+        self._data(0x01)
+
+        self._cmd(_DATA_ENTRY_MODE)
+        self._data(0x01)             # X-increment, Y-decrement
+
+        self._set_window(0, self.height - 1, self.width - 1, 0)
 
         self._reset_counters()
+        self._wait("init completion")
+
+    def _set_window(self, x_start, y_start, x_end, y_end):
+        self._cmd(_SET_RAMX_ADDR)
+        self._data([
+            x_start & 0xFF,
+            (x_start >> 8) & 0x03,
+            x_end & 0xFF,
+            (x_end >> 8) & 0x03,
+        ])
+        self._cmd(_SET_RAMY_ADDR)
+        self._data([
+            y_start & 0xFF,
+            (y_start >> 8) & 0xFF,
+            y_end & 0xFF,
+            (y_end >> 8) & 0xFF,
+        ])
 
     def _reset_counters(self):
-        self._cmd(_SET_RAMX_COUNTER); self._data(0x00)
-        self._cmd(_SET_RAMY_COUNTER); self._data([0x00, 0x00])
+        self._cmd(_SET_RAMX_COUNTER)
+        self._data([0x00, 0x00])
+        self._cmd(_SET_RAMY_COUNTER)
+        self._data([0x00, 0x00])
 
     def clear(self, color=0xFF):
         """Fill display RAM.  0xFF = all white (default),  0x00 = all black."""
         self._reset_counters()
         self._cmd(_WRITE_RAM_BW)
+        self.dc.value(1)
+        self.cs.value(0)
+        self.spi.write(bytes([color]) * (EPD_WIDTH * EPD_HEIGHT // 8))
+        self.cs.value(1)
+        self._reset_counters()
+        self._cmd(_WRITE_RAM_RED)
         self.dc.value(1)
         self.cs.value(0)
         self.spi.write(bytes([color]) * (EPD_WIDTH * EPD_HEIGHT // 8))
@@ -141,13 +163,19 @@ class EPD4in26:
         self.cs.value(0)
         self.spi.write(self.buf)
         self.cs.value(1)
+        self._reset_counters()
+        self._cmd(_WRITE_RAM_RED)
+        self.dc.value(1)
+        self.cs.value(0)
+        self.spi.write(self.buf)
+        self.cs.value(1)
         self._refresh()
 
     def _refresh(self):
         self._cmd(_DISPLAY_UPDATE_CTRL2)
-        self._data(0xC7)             # load temperature + full waveform, update
+        self._data(0xF7)
         self._cmd(_MASTER_ACTIVATION)
-        self._wait()
+        self._wait("display refresh")
 
     def sleep(self):
         self._cmd(0x10)              # deep sleep mode 1 (retains RAM)

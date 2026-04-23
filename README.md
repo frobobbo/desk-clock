@@ -2,7 +2,7 @@
 
 A book-themed desk clock running on a **Raspberry Pi Pico 2 W**.  
 Displays the current time, date, weather, and a Quote of the Day on a  
-**Waveshare 4.26" e-Paper HAT (800 × 480)**, with time kept by a **DS3231 RTC**.
+**Waveshare 4.26" e-Paper HAT (800 × 480)**.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -30,7 +30,6 @@ Displays the current time, date, weather, and a Quote of the Day on a
 | Component | Description |
 |---|---|
 | Raspberry Pi Pico 2 W | Microcontroller with WiFi (RP2350) |
-| DS3231 | Precision I²C Real-Time Clock module |
 | Waveshare 4.26" e-Paper HAT | 800 × 480 SPI e-Paper display (B/W) |
 
 ---
@@ -52,29 +51,15 @@ Waveshare HAT                Pico 2 W
  BUSY         ──────────────  Pin 17  GP13
 ```
 
-### DS3231 RTC → Pico 2 W
-
-```
-DS3231                       Pico 2 W
-─────────────────────────────────────────────────────────
- VCC  (3.3V)  ──────────────  Pin 36  (3V3 OUT)
- GND          ──────────────  Pin 38  (GND)
- SDA          ──────────────  Pin 6   GP4   [I2C0 SDA]
- SCL          ──────────────  Pin 7   GP5   [I2C0 SCL]
-```
-
-> **Note:** The DS3231 breakout board includes onboard pull-up resistors.
-> If using a bare DS3231 chip, add 4.7 kΩ pull-ups on SDA and SCL to 3.3 V.
-
 ### Pico 2 W Pinout Reference
 
 ```
                    ┌─────────────────────┐
               VBUS ┤1                 40├ VBUS
               VSYS ┤2                 39├ VSYS
-               GND ┤3                 38├ GND   ◄── DS3231 GND / HAT GND
+               GND ┤3                 38├ GND   ◄── HAT GND
          3V3 (OUT) ┤4  [3V3 OUT]      37├ 3V3_EN
-         3V3 (OUT) ┤36 [3V3 OUT] ─────36├        ◄── DS3231 VCC / HAT VCC
+         3V3 (OUT) ┤36 [3V3 OUT] ─────36├        ◄── HAT VCC
               GP27 ┤32                35├ ADC_VREF
               GP26 ┤31                34├ GP28
                GND ┤33                33├ GND
@@ -93,8 +78,8 @@ DS3231                       Pico 2 W
                GND ┤13                12├ GP9  [CS]  ◄── HAT
               GP8  ┤11 [DC]   ◄── HAT 11├
               GP7  ┤10                10├ GP6
-               GND ┤8                  9├ GP5  [SCL] ◄── DS3231
-              GP4  ┤6  [SDA]  ◄── DS3231 7├ GP5
+               GND ┤8                  9├ GP5
+              GP4  ┤6                  7├ GP5
               GP3  ┤5                  4├ GP2
               GP1  ┤2                  3├ GP0
                GND ┤1(GND)             │
@@ -158,8 +143,7 @@ desk-clock/
     ├── weather.py           # Open-Meteo weather API (no key required)
     ├── quotes.py            # ZenQuotes.io Quote of the Day (no key required)
     └── lib/
-        ├── epd4in26.py      # Waveshare 4.26" SSD1619A e-Paper driver
-        └── ds3231.py        # DS3231 I²C RTC driver
+        └── epd4in26.py      # Waveshare 4.26" SSD1619A e-Paper driver
 ```
 
 ---
@@ -176,11 +160,11 @@ desk-clock/
 
 ## How It Works
 
-1. **Boot** — initialises display (splash screen), connects WiFi, syncs DS3231 via NTP.
-2. **Every minute** — reads time from DS3231, redraws entire display.
+1. **Boot** — initialises display, shows a splash screen, connects WiFi, and syncs the Pico's internal RTC via NTP.
+2. **Every minute** — reads time from the Pico's internal RTC and redraws the display.
 3. **Every 30 minutes** — fetches fresh weather from Open-Meteo.
 4. **Once per day** — fetches a new Quote of the Day from ZenQuotes.
-5. **WiFi offline** — falls back to DS3231 time + cached/fallback data; no crash.
+5. **WiFi offline** — continues using the Pico's current clock value plus cached/fallback data.
 
 E-Paper retains the image indefinitely with zero power — ideal for a desk clock.
 
@@ -193,7 +177,6 @@ E-Paper retains the image indefinitely with zero power — ideal for a desk cloc
 | Blank / all-white display | Check SPI wiring (MOSI/SCK/CS/DC/RST/BUSY) |
 | Time is wrong by ±1h | Adjust `DST_OFFSET` in `config.py` |
 | No weather / quote | Check WiFi credentials and internet access |
-| "RTC read error" | Check I²C wiring (SDA/SCL/VCC/GND) |
 | Display flickers | Normal — e-Paper full refresh takes ~3–5 s |
 
 ---
