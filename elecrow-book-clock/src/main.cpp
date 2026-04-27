@@ -517,11 +517,11 @@ void drawQuoteSection()
   const int center_x = kCardX + kCardW / 2;
 
   drawDividerOrnament(500);
-  drawCenteredText(center_x, 528, state.content.quote_title, 24, WHITE);
+  drawCenteredText(center_x, 524, state.content.quote_title, 24, WHITE);
   if (strlen(state.content.quote_author) > 0) {
-    drawCenteredText(center_x, 568, state.content.quote_author, 16, WHITE);
+    drawCenteredText(center_x, 554, state.content.quote_author, 16, WHITE);
   }
-  drawWrappedCenteredText(center_x, 610, state.content.quote_text, 24, WHITE, 18, 4, 32);
+  drawWrappedCenteredText(center_x, 576, state.content.quote_text, 16, WHITE, 26, 5, 28);
   drawDividerOrnament(744);
 }
 
