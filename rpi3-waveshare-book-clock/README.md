@@ -6,6 +6,8 @@ This version renders a portrait literary dashboard inspired by an antique framed
 
 - processed black channel preview: `assets/generated/book-clock-black.png`
 - portrait preview: `assets/generated/book-clock-preview.png`
+- greeting changes by time of day and is fixed to Lyndsay
+- literary quote and on-this-day-in-literature content are fetched from the Desk Clock Config API
 
 The logical design is drawn as `480 x 800` portrait art, then rotated into the `800 x 480` framebuffer expected by Waveshare's Python driver. Mount the panel in portrait orientation for the display to match the preview.
 
@@ -135,6 +137,18 @@ python3 src/render_book_clock.py
 ```
 
 This writes PNG previews into `assets/generated/`.
+
+The renderer uses `http://deskclock.johnsons.casa` by default. Override the Config API base URL with either:
+
+```bash
+CONFIG_API_URL=http://deskclock.johnsons.casa python3 src/render_book_clock.py
+```
+
+or:
+
+```bash
+python3 src/render_book_clock.py --config-api-url http://deskclock.johnsons.casa
+```
 
 ## Display On The Panel
 

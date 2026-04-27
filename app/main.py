@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_store import AppConfig, ConfigStore, DisplayConfig, QuoteConfig
+from .literature_providers import resolve_literary_display
 from .quote_providers import resolve_display_content, resolve_quote
 
 
@@ -54,6 +55,11 @@ def get_display(display_id: str) -> DisplayConfig:
         return resolve_display_content(config.displays[display_id])
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="display not found") from exc
+
+
+@app.get("/api/displays/waveshare-rpi3/literary")
+def get_waveshare_literary() -> dict[str, str]:
+    return resolve_literary_display()
 
 
 @app.put("/api/displays/{display_id}", response_model=AppConfig)

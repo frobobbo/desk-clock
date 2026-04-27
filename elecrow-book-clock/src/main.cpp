@@ -217,6 +217,135 @@ void drawCloudIcon(int x, int y)
   EPD_DrawRectangle(x + 8, y + 12, x + 54, y + 23, WHITE, 1);
 }
 
+void drawSunIcon(int x, int y)
+{
+  const int cx = x + 31;
+  const int cy = y + 16;
+  EPD_DrawCircle(cx, cy, 12, WHITE, 0);
+  EPD_DrawLine(cx, y, cx, y + 5, WHITE);
+  EPD_DrawLine(cx, y + 27, cx, y + 32, WHITE);
+  EPD_DrawLine(x + 15, cy, x + 20, cy, WHITE);
+  EPD_DrawLine(x + 42, cy, x + 47, cy, WHITE);
+  EPD_DrawLine(x + 20, y + 5, x + 23, y + 8, WHITE);
+  EPD_DrawLine(x + 39, y + 24, x + 42, y + 27, WHITE);
+  EPD_DrawLine(x + 42, y + 5, x + 39, y + 8, WHITE);
+  EPD_DrawLine(x + 23, y + 24, x + 20, y + 27, WHITE);
+}
+
+void drawPartlyCloudyIcon(int x, int y)
+{
+  drawSunIcon(x, y - 5);
+  EPD_DrawRectangle(x + 8, y + 12, x + 57, y + 26, BLACK, 1);
+  drawCloudIcon(x + 4, y + 8);
+}
+
+void drawRainIcon(int x, int y)
+{
+  drawCloudIcon(x, y);
+  EPD_DrawLine(x + 16, y + 30, x + 11, y + 38, WHITE);
+  EPD_DrawLine(x + 31, y + 30, x + 26, y + 38, WHITE);
+  EPD_DrawLine(x + 46, y + 30, x + 41, y + 38, WHITE);
+}
+
+void drawSnowIcon(int x, int y)
+{
+  drawCloudIcon(x, y);
+  EPD_DrawLine(x + 20, y + 31, x + 20, y + 39, WHITE);
+  EPD_DrawLine(x + 16, y + 35, x + 24, y + 35, WHITE);
+  EPD_DrawLine(x + 38, y + 31, x + 38, y + 39, WHITE);
+  EPD_DrawLine(x + 34, y + 35, x + 42, y + 35, WHITE);
+}
+
+void drawWindIcon(int x, int y)
+{
+  EPD_DrawLine(x + 8, y + 9, x + 46, y + 9, WHITE);
+  EPD_DrawLine(x + 46, y + 9, x + 54, y + 14, WHITE);
+  EPD_DrawLine(x + 54, y + 14, x + 46, y + 19, WHITE);
+  EPD_DrawLine(x + 16, y + 22, x + 54, y + 22, WHITE);
+  EPD_DrawLine(x + 8, y + 35, x + 40, y + 35, WHITE);
+  EPD_DrawLine(x + 40, y + 35, x + 48, y + 30, WHITE);
+}
+
+void drawFogIcon(int x, int y)
+{
+  EPD_DrawLine(x + 6, y + 10, x + 56, y + 10, WHITE);
+  EPD_DrawLine(x + 14, y + 20, x + 50, y + 20, WHITE);
+  EPD_DrawLine(x + 6, y + 30, x + 56, y + 30, WHITE);
+}
+
+void drawStormIcon(int x, int y)
+{
+  drawRainIcon(x, y);
+  EPD_DrawLine(x + 34, y + 27, x + 27, y + 40, WHITE);
+  EPD_DrawLine(x + 27, y + 40, x + 38, y + 36, WHITE);
+  EPD_DrawLine(x + 38, y + 36, x + 32, y + 47, WHITE);
+}
+
+bool containsIgnoreCase(const char* text, const char* needle)
+{
+  if (!text || !needle || !*needle) {
+    return false;
+  }
+
+  for (const char* p = text; *p; ++p) {
+    const char* h = p;
+    const char* n = needle;
+    while (*h && *n) {
+      char hc = *h;
+      char nc = *n;
+      if (hc >= 'A' && hc <= 'Z') hc = hc - 'A' + 'a';
+      if (nc >= 'A' && nc <= 'Z') nc = nc - 'A' + 'a';
+      if (hc != nc) {
+        break;
+      }
+      ++h;
+      ++n;
+    }
+    if (!*n) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void drawWeatherIcon(int x, int y, const char* condition)
+{
+  if (containsIgnoreCase(condition, "thunder") || containsIgnoreCase(condition, "storm")) {
+    drawStormIcon(x, y);
+    return;
+  }
+  if (containsIgnoreCase(condition, "rain") || containsIgnoreCase(condition, "shower")
+      || containsIgnoreCase(condition, "drizzle")) {
+    drawRainIcon(x, y);
+    return;
+  }
+  if (containsIgnoreCase(condition, "snow") || containsIgnoreCase(condition, "sleet")
+      || containsIgnoreCase(condition, "ice") || containsIgnoreCase(condition, "freez")) {
+    drawSnowIcon(x, y);
+    return;
+  }
+  if (containsIgnoreCase(condition, "wind") || containsIgnoreCase(condition, "blustery")
+      || containsIgnoreCase(condition, "gale")) {
+    drawWindIcon(x, y);
+    return;
+  }
+  if (containsIgnoreCase(condition, "fog") || containsIgnoreCase(condition, "mist")
+      || containsIgnoreCase(condition, "haze")) {
+    drawFogIcon(x, y);
+    return;
+  }
+  if (containsIgnoreCase(condition, "partly") && (containsIgnoreCase(condition, "cloud")
+      || containsIgnoreCase(condition, "sun"))) {
+    drawPartlyCloudyIcon(x, y);
+    return;
+  }
+  if (containsIgnoreCase(condition, "sun") || containsIgnoreCase(condition, "clear")) {
+    drawSunIcon(x, y - 4);
+    return;
+  }
+  drawCloudIcon(x, y);
+}
+
 void drawBitmapGlyph(int x, int y, const uint8_t* data, uint8_t width, uint8_t height, uint16_t color)
 {
   for (uint8_t row = 0; row < height; ++row) {
@@ -595,15 +724,15 @@ void drawWeatherSection()
                    || strlen(state.content.weather_temp_low) > 0;
 
   drawDividerOrnament(352);
-  drawCloudIcon(row_left, 374);
-  drawKlyraTemperature(row_left + icon_width + gap, 360, state.content.weather_temperature, WHITE);
+  drawWeatherIcon(row_left, 374, state.content.weather_condition);
+  drawKlyraTemperature(row_left + icon_width + gap, 368, state.content.weather_temperature, WHITE);
   if (has_hl) {
     char hl[32];
     snprintf(hl, sizeof(hl), "H %s  L %s",
              state.content.weather_temp_high,
              state.content.weather_temp_low);
-    drawCenteredText(content_center_x, 430, hl, 24, WHITE);
-    drawCenteredText(content_center_x, 462, state.content.weather_condition, 24, WHITE);
+    drawCenteredText(content_center_x, 416, hl, 24, WHITE);
+    drawCenteredText(content_center_x, 452, state.content.weather_condition, 24, WHITE);
   } else {
     drawCenteredText(content_center_x, 430, state.content.weather_condition, 24, WHITE);
   }

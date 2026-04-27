@@ -4,10 +4,11 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import logging
+import os
 from pathlib import Path
 import sys
 
-from render_book_clock import ClockData, GENERATED, render, save_outputs
+from render_book_clock import GENERATED, fetch_clock_data, render, save_outputs
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -25,7 +26,7 @@ def require_spi_device() -> None:
     )
 
 
-def display() -> None:
+def display(config_api_url: str | None = None) -> None:
     require_spi_device()
 
     try:
@@ -40,7 +41,7 @@ def display() -> None:
                 "RaspberryPi_JetsonNano/python/lib directory."
             ) from exc
 
-    black, _ = render(ClockData(now=datetime.now()))
+    black, _ = render(fetch_clock_data(datetime.now(), config_api_url))
     epd = epd7in5_V2.EPD()
     logging.info("initializing Waveshare 7.5in black/white display")
     epd.init()
@@ -54,15 +55,16 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--display", action="store_true", help="Render and send to the e-paper display")
     parser.add_argument("--preview-only", action="store_true", help="Only write preview PNGs")
+    parser.add_argument("--config-api-url", default=os.getenv("CONFIG_API_URL"), help="Config API base URL")
     args = parser.parse_args()
 
     if args.preview_only or not args.display:
-        save_outputs(ClockData(now=datetime.now()))
+        save_outputs(fetch_clock_data(datetime.now(), args.config_api_url))
         logging.info("wrote preview files to %s", GENERATED)
         if not args.display:
             return
 
-    display()
+    display(args.config_api_url)
 
 
 if __name__ == "__main__":
