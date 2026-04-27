@@ -8,13 +8,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_store import AppConfig, ConfigStore, DisplayConfig
+from .quote_providers import resolve_display_content
 
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "data/display-config.json"))
 
-app = FastAPI(title="Desk Clock Display Config", version="0.2.0")
+app = FastAPI(title="Desk Clock Display Config", version="0.2.1")
 store = ConfigStore(CONFIG_PATH)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -50,7 +51,7 @@ def list_displays() -> dict[str, list[str]]:
 def get_display(display_id: str) -> DisplayConfig:
     config = store.read()
     try:
-        return config.displays[display_id]
+        return resolve_display_content(config.displays[display_id])
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="display not found") from exc
 

@@ -66,10 +66,10 @@ The Elecrow payload has two configurable content sections: `weather` and `quote`
 
 | Source | Meaning |
 |---|---|
-| `daily_author_quote` | Daily quote from an author |
-| `daily_bible_verse` | Daily Bible verse |
-| `daily_psalm` | Daily Psalm |
-| `today_in_history` | Today in history |
+| `daily_author_quote` | Quote of the day from ZenQuotes |
+| `daily_bible_verse` | Daily selected passage from bible-api.com |
+| `daily_psalm` | Daily selected Psalm passage from bible-api.com |
+| `today_in_history` | Historical event from Wikipedia's public on-this-day feed |
 
 Configuration is stored as JSON at `/data/display-config.json` in the container. Override the path with `CONFIG_PATH` if needed.
 
