@@ -1,23 +1,20 @@
-# Raspberry Pi 3 Waveshare 7.5" Book Clock
+# Raspberry Pi 3 Waveshare 7.5" B/W Book Clock
 
-Sample project for a Raspberry Pi 3 driving a Waveshare 7.5" e-Paper Module/HAT (B).
+Sample project for a Raspberry Pi 3 driving a Waveshare 7.5" black/white e-Paper raw display.
 
-This version uses a full raster background workflow:
+This version renders a portrait literary dashboard inspired by an antique framed book plate:
 
-- source artwork: `assets/source/book-background-source.png`
 - processed black channel preview: `assets/generated/book-clock-black.png`
-- processed red channel preview: `assets/generated/book-clock-red.png`
-- composite preview: `assets/generated/book-clock-preview.png`
+- portrait preview: `assets/generated/book-clock-preview.png`
 
-The panel is 800 x 480 and supports three display states: white, black, and red. The renderer uses Pillow to crop, sharpen, dither, and separate the artwork into the two 1-bit images expected by Waveshare's Python driver.
+The logical design is drawn as `480 x 800` portrait art, then rotated into the `800 x 480` framebuffer expected by Waveshare's Python driver. Mount the panel in portrait orientation for the display to match the preview.
 
 ## Hardware
 
 - Raspberry Pi 3
-- Waveshare 7.5inch e-Paper Module/HAT (B), V2/V3 compatible
-- 800 x 480 red/black/white SPI e-paper panel
+- Waveshare 7.5inch E-Ink Raw Display, black/white, 800 x 480 SPI
 
-Waveshare notes that V3 hardware is compatible with the V2 demo, so this project targets the Python module `epd7in5b_V2`.
+The display code targets Waveshare's black/white Python module `epd7in5_V2`, with a fallback to `epd7in5` for older library checkouts.
 
 ## Raspberry Pi Setup
 
@@ -84,10 +81,9 @@ python3 src/display_book_clock.py --preview-only
 
 ## Notes
 
-Full red/black/white refreshes on this panel are slow, roughly tens of seconds. That is normal for tri-color e-paper. For a clock, render the full art at boot or hourly, then consider a simplified black-only partial update path for minute changes if the exact panel revision supports it well.
+Full black/white refreshes are much faster than the tri-color panel, but still avoid unnecessary repeated refreshes to reduce ghosting.
 
 ## Sources
 
-- Waveshare product page: https://www.waveshare.com/product/7.5inch-e-paper-hat-b.htm
-- Waveshare wiki/manual: https://www.waveshare.com/wiki/7.5inch_e-Paper_HAT_(B)_Manual
+- Waveshare product page: https://www.waveshare.com/product/displays/e-paper/epaper-1/7.5inch-e-paper.htm
 - Waveshare Python package: https://pypi.org/project/waveshare-epaper/

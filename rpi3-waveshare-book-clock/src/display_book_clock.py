@@ -29,19 +29,23 @@ def display() -> None:
     require_spi_device()
 
     try:
-        from waveshare_epd import epd7in5b_V2
+        from waveshare_epd import epd7in5_V2
     except ImportError as exc:
-        raise SystemExit(
-            "Could not import waveshare_epd.epd7in5b_V2. Install waveshare-epaper "
-            "or set PYTHONPATH to Waveshare's RaspberryPi_JetsonNano/python/lib directory."
-        ) from exc
+        try:
+            from waveshare_epd import epd7in5 as epd7in5_V2
+        except ImportError:
+            raise SystemExit(
+                "Could not import waveshare_epd.epd7in5_V2 or waveshare_epd.epd7in5. "
+                "Install waveshare-epaper or set PYTHONPATH to Waveshare's "
+                "RaspberryPi_JetsonNano/python/lib directory."
+            ) from exc
 
-    _, black, red, _ = render(ClockData(now=datetime.now()))
-    epd = epd7in5b_V2.EPD()
-    logging.info("initializing Waveshare 7.5in B display")
+    black, _ = render(ClockData(now=datetime.now()))
+    epd = epd7in5_V2.EPD()
+    logging.info("initializing Waveshare 7.5in black/white display")
     epd.init()
-    logging.info("sending black/red framebuffers")
-    epd.display(epd.getbuffer(black), epd.getbuffer(red))
+    logging.info("sending black/white framebuffer")
+    epd.display(epd.getbuffer(black))
     logging.info("sleeping display")
     epd.sleep()
 

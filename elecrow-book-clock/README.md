@@ -97,6 +97,28 @@ If WiFi credentials are left blank, the sample falls back to elapsed time starti
 
 If the config API is unavailable, the screen keeps rendering with built-in fallback weather and quote values.
 
+## Write WiFi Info To The Display
+
+WiFi credentials are compiled into the firmware at build time. To write them to the ELECROW display, build and upload in one command:
+
+```bash
+PLATFORMIO_BUILD_FLAGS='-DWIFI_SSID=\"your_ssid\" -DWIFI_PASSWORD=\"your_password\" -DCONFIG_API_URL=\"https://deskclock.johnsons.casa\"' pio run -t upload
+```
+
+Then watch the serial log:
+
+```bash
+pio device monitor
+```
+
+The display should connect to WiFi, sync time with NTP, and fetch display content from:
+
+```text
+https://deskclock.johnsons.casa/api/displays/elecrow
+```
+
+If the serial log reports `NO_AP_FOUND`, verify the SSID is exact and available on 2.4 GHz. The ESP32-S3 cannot join a 5 GHz-only network.
+
 ## Build
 
 With PlatformIO:
