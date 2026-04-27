@@ -1,186 +1,123 @@
 # The Daily Chronicle — Desk Clock
 
-A book-themed desk clock running on a **Raspberry Pi Pico 2 W**.  
-Displays the current time, date, weather, and a Quote of the Day on a  
-**Waveshare 4.26" e-Paper HAT (800 × 480)**.
+This repository now contains two supported book-clock builds:
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │              -* THE DAILY CHRONICLE *-                               │   │
-│  ├──────────────────────────────────────┬─────────────────────────────  │   │
-│  │                                      │                               │   │
-│  │         10:42  PM                    │  ~ Quote of the Day ~         │   │
-│  │        Wednesday                     │ ─────────────────────         │   │
-│  │      April 20, 2026                  │                               │   │
-│  │  ────────────────────                │  "The only way to do great    │   │
-│  │   ☀  72°F  Partly Cloudy            │   work is to love what        │   │
-│  │      Humidity 45%  Wind 8mph N       │   you do."                   │   │
-│  │                                      │        - Steve Jobs           │   │
-│  ├──────────────────────────────────────┴─────────────────────────────  │   │
-│  │   ~ i ~                                                  ~ ii ~      │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Hardware
-
-| Component | Description |
+| Target | Project |
 |---|---|
-| Raspberry Pi Pico 2 W | Microcontroller with WiFi (RP2350) |
-| Waveshare 4.26" e-Paper HAT | 800 × 480 SPI e-Paper display (B/W) |
+| Internal configuration API and web UI | [`app/`](app/) |
+| Kubernetes Helm chart | [`charts/desk-clock-config/`](charts/desk-clock-config/) |
+| ELECROW CrowPanel ESP32 5.79" E-Paper HMI Display | [`elecrow-book-clock/`](elecrow-book-clock/) |
+| Raspberry Pi 3 + Waveshare 7.5" e-Paper Module/HAT (B) | [`rpi3-waveshare-book-clock/`](rpi3-waveshare-book-clock/) |
 
----
+The former Raspberry Pi Pico / MicroPython build has been removed. Use the target-specific README in each project directory for hardware setup, build steps, and display notes.
 
-## Wiring Diagram
-
-### Waveshare 4.26" e-Paper HAT → Pico 2 W
-
-```
-Waveshare HAT                Pico 2 W
-─────────────────────────────────────────────────────────
- VCC  (3.3V)  ──────────────  Pin 36  (3V3 OUT)
- GND          ──────────────  Pin 38  (GND)
- DIN  (MOSI)  ──────────────  Pin 15  GP11  [SPI1 TX]
- CLK  (SCK)   ──────────────  Pin 14  GP10  [SPI1 SCK]
- CS           ──────────────  Pin 12  GP9
- DC           ──────────────  Pin 11  GP8
- RST          ──────────────  Pin 16  GP12
- BUSY         ──────────────  Pin 17  GP13
-```
-
-### Pico 2 W Pinout Reference
-
-```
-                   ┌─────────────────────┐
-              VBUS ┤1                 40├ VBUS
-              VSYS ┤2                 39├ VSYS
-               GND ┤3                 38├ GND   ◄── HAT GND
-         3V3 (OUT) ┤4  [3V3 OUT]      37├ 3V3_EN
-         3V3 (OUT) ┤36 [3V3 OUT] ─────36├        ◄── HAT VCC
-              GP27 ┤32                35├ ADC_VREF
-              GP26 ┤31                34├ GP28
-               GND ┤33                33├ GND
-              GP22 ┤29                28├ GP21
-              GP21 ┤27                27├ GP20
-              GP20 ┤26                26├ GP19
-              GP19 ┤25                25├ GP18
-              GP18 ┤24                24├ GP17
-              GP17 ┤23                23├ GP16
-              GP16 ┤22                22├ GP15
-               GND ┤23(GND)           21├ GP14
-              GP13 ┤17 [BUSY] ◄────      │
-              GP12 ┤16 [RST]  ◄────      │
-              GP11 ┤15 [MOSI] ◄── HAT    │
-              GP10 ┤14 [SCK]  ◄────      │
-               GND ┤13                12├ GP9  [CS]  ◄── HAT
-              GP8  ┤11 [DC]   ◄── HAT 11├
-              GP7  ┤10                10├ GP6
-               GND ┤8                  9├ GP5
-              GP4  ┤6                  7├ GP5
-              GP3  ┤5                  4├ GP2
-              GP1  ┤2                  3├ GP0
-               GND ┤1(GND)             │
-                   └─────────────────────┘
-```
-
----
-
-## Software Setup
-
-### 1 — Flash MicroPython
-
-Download and flash the latest **Raspberry Pi Pico 2 W** MicroPython UF2 from:  
-https://micropython.org/download/RPI_PICO2_W/
-
-### 2 — Install Thonny (or use `mpremote`)
-
-Thonny IDE: https://thonny.org  
-Or install `mpremote`: `pip install mpremote`
-
-### 3 — Configure the clock
-
-Edit `src/config.py` and set:
-
-```python
-WIFI_SSID     = "your_network"
-WIFI_PASSWORD = "your_password"
-LATITUDE      = 40.7128    # your latitude
-LONGITUDE     = -74.0060   # your longitude
-TEMP_UNIT     = "fahrenheit"   # or "celsius"
-TIME_FORMAT   = 12             # or 24
-TIMEZONE_OFFSET = -5           # UTC offset (e.g. -5 for EST)
-DST_OFFSET      = 1            # 1 during DST, 0 otherwise
-```
-
-### 4 — Upload files
-
-Upload the entire `src/` directory to the Pico's root (`/`):
-
-```bash
-# Using mpremote:
-mpremote connect /dev/ttyACM0 cp -r src/. :
-
-# Or copy each file/folder manually in Thonny.
-```
-
-The Pico should start automatically on next boot.
-
----
-
-## Project Structure
+## Project Layout
 
 ```
 desk-clock/
-├── README.md
-├── .gitignore
-└── src/
-    ├── main.py              # Application entry point & main loop
-    ├── config.py            # WiFi, location, timezone, pin config
-    ├── display_manager.py   # Book-theme layout renderer
-    ├── weather.py           # Open-Meteo weather API (no key required)
-    ├── quotes.py            # ZenQuotes.io Quote of the Day (no key required)
-    └── lib/
-        └── epd4in26.py      # Waveshare 4.26" SSD1619A e-Paper driver
+├── app/
+│   ├── main.py
+│   ├── config_store.py
+│   └── static/
+├── Dockerfile
+├── requirements.txt
+├── charts/
+│   └── desk-clock-config/
+├── elecrow-book-clock/
+│   ├── README.md
+│   ├── platformio.ini
+│   ├── include/
+│   ├── lib/
+│   ├── src/
+│   └── tools/
+└── rpi3-waveshare-book-clock/
+    ├── README.md
+    ├── requirements.txt
+    ├── src/
+    └── tools/
 ```
 
----
+## Configuration Service
 
-## APIs Used (free, no key required)
+The root project includes an internal-only web front end and JSON API for managing the data shown on the e-ink screens. It has no login or user management by design, so expose it only on a trusted network.
 
-| Service | Endpoint |
+Run locally:
+
+```bash
+docker build -t desk-clock-config .
+docker run --rm -p 8000:8000 -v desk-clock-config:/data desk-clock-config
+```
+
+Open `http://localhost:8000`.
+
+Useful API endpoints:
+
+| Endpoint | Purpose |
 |---|---|
-| Weather | [Open-Meteo](https://open-meteo.com/) — no signup |
-| Quotes  | [ZenQuotes.io](https://zenquotes.io/) — no signup |
-| Time    | NTP (`pool.ntp.org`) via MicroPython `ntptime` |
+| `GET /healthz` | Container health check |
+| `GET /api/config` | Full display configuration |
+| `PUT /api/config` | Replace full display configuration |
+| `GET /api/displays` | List display IDs |
+| `GET /api/displays/elecrow` | Elecrow display payload |
+| `GET /api/displays/waveshare-rpi3` | Raspberry Pi 3 Waveshare payload |
+| `PUT /api/displays/{display_id}` | Update one display payload |
 
----
+Configuration is stored as JSON at `/data/display-config.json` in the container. Override the path with `CONFIG_PATH` if needed.
 
-## How It Works
+## Container Builds
 
-1. **Boot** — initialises display, shows a splash screen, connects WiFi, and syncs the Pico's internal RTC via NTP.
-2. **Every minute** — reads time from the Pico's internal RTC and redraws the display.
-3. **Every 30 minutes** — fetches fresh weather from Open-Meteo.
-4. **Once per day** — fetches a new Quote of the Day from ZenQuotes.
-5. **WiFi offline** — continues using the Pico's current clock value plus cached/fallback data.
+GitHub Actions builds the API/web Docker image with `.github/workflows/api-web-image.yml`.
 
-E-Paper retains the image indefinitely with zero power — ideal for a desk clock.
+On pushes to `main`, the workflow publishes:
 
----
+```text
+ghcr.io/<owner>/<repo>/desk-clock-config
+```
 
-## Troubleshooting
+Pull requests build the image without pushing it.
 
-| Symptom | Likely cause |
-|---|---|
-| Blank / all-white display | Check SPI wiring (MOSI/SCK/CS/DC/RST/BUSY) |
-| Time is wrong by ±1h | Adjust `DST_OFFSET` in `config.py` |
-| No weather / quote | Check WiFi credentials and internet access |
-| Display flickers | Normal — e-Paper full refresh takes ~3–5 s |
+## Helm Chart
 
----
+The Kubernetes chart deploys the internal API/web service with a Deployment, ClusterIP Service, optional Ingress, and optional PersistentVolumeClaim for `/data`.
 
-## License
+Install from a local checkout:
 
-MIT
+```bash
+helm install desk-clock-config ./charts/desk-clock-config
+```
+
+Example with ingress enabled:
+
+```bash
+helm upgrade --install desk-clock-config ./charts/desk-clock-config \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=desk-clock-config.internal
+```
+
+The chart defaults to:
+
+```text
+ghcr.io/frobobbo/desk-clock/desk-clock-config:latest
+```
+
+GitHub Actions packages the chart with `.github/workflows/helm-chart.yml` and publishes a Helm repository to the `gh-pages` branch. After GitHub Pages is enabled for that branch, install from the published repo with:
+
+```bash
+helm repo add desk-clock https://frobobbo.github.io/desk-clock
+helm repo update
+helm install desk-clock-config desk-clock/desk-clock-config
+```
+
+## Targets
+
+### ELECROW CrowPanel
+
+The Elecrow build is an Arduino/PlatformIO firmware project for the ELECROW CrowPanel ESP32 5.79" e-paper display. It uses the bundled ELECROW e-paper driver and renders the clock layout directly on the device.
+
+Start here: [`elecrow-book-clock/README.md`](elecrow-book-clock/README.md)
+
+### Raspberry Pi 3 + Waveshare 7.5" B
+
+The Raspberry Pi 3 build renders the book-clock artwork with Python/Pillow and sends black/red channel buffers to the Waveshare 7.5" B e-paper driver.
+
+Start here: [`rpi3-waveshare-book-clock/README.md`](rpi3-waveshare-book-clock/README.md)

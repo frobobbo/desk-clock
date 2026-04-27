@@ -1,0 +1,15 @@
+Desk Clock Config has been installed.
+
+Service:
+  {{ include "desk-clock-config.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+
+{{- if .Values.ingress.enabled }}
+Ingress:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+Port forward:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "desk-clock-config.fullname" . }} 8000:{{ .Values.service.port }}
+{{- end }}
+

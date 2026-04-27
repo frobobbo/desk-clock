@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Desk Clock Config</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Desk Clock Config</h1>
+        <p id="updatedAt">Loading...</p>
+      </div>
+      <button id="saveButton" type="button">Save</button>
+    </header>
+
+    <main class="shell">
+      <aside class="sidebar">
+        <button class="display-tab active" type="button" data-display="elecrow">Elecrow</button>
+        <button class="display-tab" type="button" data-display="waveshare-rpi3">Waveshare Pi 3</button>
+      </aside>
+
+      <form id="configForm" class="panel">
+        <section class="section">
+          <div class="section-title">
+            <h2>Display</h2>
+            <label class="switch">
+              <input id="enabled" type="checkbox">
+              <span>Enabled</span>
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              Headline
+              <input id="headline" type="text" maxlength="80">
+            </label>
+            <label>
+              Subtitle
+              <input id="subtitle" type="text" maxlength="120">
+            </label>
+            <label>
+              Footer left
+              <input id="footerLeft" type="text" maxlength="40">
+            </label>
+            <label>
+              Footer right
+              <input id="footerRight" type="text" maxlength="40">
+            </label>
+            <label>
+              Refresh minutes
+              <input id="refreshMinutes" type="number" min="1" max="1440">
+            </label>
+          </div>
+          <div class="toggles">
+            <label><input id="showTime" type="checkbox"> Show time</label>
+            <label><input id="showDate" type="checkbox"> Show date</label>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">
+            <h2>Weather</h2>
+            <label class="switch">
+              <input id="weatherEnabled" type="checkbox">
+              <span>Enabled</span>
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              Location label
+              <input id="weatherLocation" type="text" maxlength="80">
+            </label>
+            <label>
+              Temperature
+              <input id="weatherTemperature" type="text" maxlength="20">
+            </label>
+            <label>
+              Condition
+              <input id="weatherCondition" type="text" maxlength="80">
+            </label>
+            <label>
+              Humidity
+              <input id="weatherHumidity" type="text" maxlength="20">
+            </label>
+            <label>
+              Wind
+              <input id="weatherWind" type="text" maxlength="40">
+            </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">
+            <h2>Quote</h2>
+            <label class="switch">
+              <input id="quoteEnabled" type="checkbox">
+              <span>Enabled</span>
+            </label>
+          </div>
+          <label>
+            Quote
+            <textarea id="quoteText" rows="4" maxlength="320"></textarea>
+          </label>
+          <label>
+            Author
+            <input id="quoteAuthor" type="text" maxlength="80">
+          </label>
+        </section>
+
+        <section class="section">
+          <h2>Notes</h2>
+          <textarea id="notes" rows="3" maxlength="320"></textarea>
+        </section>
+      </form>
+    </main>
+
+    <div id="toast" role="status"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+

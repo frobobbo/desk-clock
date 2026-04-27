@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import logging
+from pathlib import Path
 import sys
 
 from render_book_clock import ClockData, GENERATED, render, save_outputs
@@ -12,7 +13,21 @@ from render_book_clock import ClockData, GENERATED, render, save_outputs
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
+def require_spi_device() -> None:
+    spi_device = Path("/dev/spidev0.0")
+    if spi_device.exists():
+        return
+
+    raise SystemExit(
+        "SPI device /dev/spidev0.0 was not found. Enable SPI with "
+        "`sudo raspi-config` -> Interface Options -> SPI, reboot, and verify "
+        "with `ls -l /dev/spidev*`."
+    )
+
+
 def display() -> None:
+    require_spi_device()
+
     try:
         from waveshare_epd import epd7in5b_V2
     except ImportError as exc:

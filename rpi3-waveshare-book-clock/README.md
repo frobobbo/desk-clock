@@ -29,6 +29,19 @@ sudo raspi-config
 
 Then enable `Interface Options` -> `SPI`.
 
+Reboot after enabling SPI, then verify the device node exists:
+
+```bash
+sudo reboot
+ls -l /dev/spidev*
+```
+
+You should see at least:
+
+```text
+/dev/spidev0.0
+```
+
 Install dependencies:
 
 ```bash

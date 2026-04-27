@@ -1,0 +1,82 @@
+name: Build and Publish Helm Chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-chart.yml"
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-chart.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Lint chart
+        run: helm lint charts/desk-clock-config
+
+      - name: Render chart
+        run: helm template desk-clock-config charts/desk-clock-config
+
+      - name: Package chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package charts/desk-clock-config --destination .cr-release-packages
+
+      - name: Publish chart to gh-pages
+        if: github.event_name != 'pull_request'
+        env:
+          REPO_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          mkdir -p /tmp/desk-clock-gh-pages
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git worktree add /tmp/desk-clock-gh-pages gh-pages
+          else
+            git worktree add --detach /tmp/desk-clock-gh-pages
+            git -C /tmp/desk-clock-gh-pages checkout --orphan gh-pages
+            git -C /tmp/desk-clock-gh-pages rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          mkdir -p /tmp/desk-clock-gh-pages/charts
+          cp .cr-release-packages/*.tgz /tmp/desk-clock-gh-pages/charts/
+
+          if [ -f /tmp/desk-clock-gh-pages/index.yaml ]; then
+            helm repo index /tmp/desk-clock-gh-pages \
+              --url "${REPO_URL}/charts" \
+              --merge /tmp/desk-clock-gh-pages/index.yaml
+          else
+            helm repo index /tmp/desk-clock-gh-pages \
+              --url "${REPO_URL}/charts"
+          fi
+
+          git -C /tmp/desk-clock-gh-pages add index.yaml charts
+          if git -C /tmp/desk-clock-gh-pages diff --cached --quiet; then
+            echo "No chart changes to publish"
+          else
+            git -C /tmp/desk-clock-gh-pages commit -m "Publish Helm chart"
+            git -C /tmp/desk-clock-gh-pages push origin HEAD:gh-pages
+          fi
+

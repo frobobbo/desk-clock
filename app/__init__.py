@@ -1,0 +1,2 @@
+"""Desk clock configuration service."""
+

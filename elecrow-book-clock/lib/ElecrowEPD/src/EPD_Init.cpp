@@ -272,6 +272,78 @@ void EPD_Display(const uint8_t *ImageBW)
   }
 }
 
+void EPD_Display_Partial(const uint8_t *ImageBW, const uint8_t *PreviousImageBW)
+{
+  uint32_t i;
+  uint8_t tempOriginal;
+  uint32_t tempcol = 0;
+  uint32_t templine = 0;
+
+  EPD_SetRAMMP();
+  EPD_SetRAMMA();
+  EPD_WR_REG(0x24);
+  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  {
+    tempOriginal = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
+    templine++;
+    if (templine >= Gate_BITS)
+    {
+      tempcol++;
+      templine = 0;
+    }
+    EPD_WR_DATA8(tempOriginal);
+  }
+
+  tempcol = 0;
+  templine = 0;
+  EPD_SetRAMMA();
+  EPD_WR_REG(0x26);
+  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  {
+    tempOriginal = *(PreviousImageBW + templine * Source_BYTES * 2 + tempcol);
+    templine++;
+    if (templine >= Gate_BITS)
+    {
+      tempcol++;
+      templine = 0;
+    }
+    EPD_WR_DATA8(tempOriginal);
+  }
+
+  tempcol = Source_BYTES;
+  templine = 0;
+  EPD_SetRAMSP();
+  EPD_SetRAMSA();
+  EPD_WR_REG(0xa4);
+  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  {
+    tempOriginal = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
+    templine++;
+    if (templine >= Gate_BITS)
+    {
+      tempcol++;
+      templine = 0;
+    }
+    EPD_WR_DATA8(tempOriginal);
+  }
+
+  tempcol = Source_BYTES;
+  templine = 0;
+  EPD_SetRAMSA();
+  EPD_WR_REG(0xa6);
+  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  {
+    tempOriginal = *(PreviousImageBW + templine * Source_BYTES * 2 + tempcol);
+    templine++;
+    if (templine >= Gate_BITS)
+    {
+      tempcol++;
+      templine = 0;
+    }
+    EPD_WR_DATA8(tempOriginal);
+  }
+}
+
 //Horizontal scanning, from right to left, from bottom to top
 void EPD_WhiteScreen_ALL_Fast(const unsigned char *datas)
 {

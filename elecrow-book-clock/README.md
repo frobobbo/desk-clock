@@ -2,7 +2,23 @@
 
 Sample Arduino/PlatformIO project for the ELECROW CrowPanel ESP32 5.79" E-Paper HMI Display.
 
-The display is 792 x 272 visible pixels and black/white only, so the book background is rendered as a high-detail 1-bit dithered antique open-book spread. The generator creates:
+The current sketch renders a centered single-column "watchface" layout inspired by a luxury book-style panel:
+
+- top book icon
+- large live clock
+- weekday and date
+- weather block
+- next-event block
+
+Refresh behavior:
+
+- minute changes use `EPD_PartUpdate()` after redrawing only the clock region
+- hour changes trigger a full redraw and global refresh so weather/event sections can update cleanly
+- the weather block is currently demo data that rotates hourly; replace `kHourlyWeatherCycle` in `src/main.cpp` with a real weather source when you wire up networking
+
+The display driver itself exposes a `792 x 272` visible area on top of an `800 x 272` internal framebuffer. This sample keeps the vendor API intact and layers the layout on top of that framebuffer.
+
+The generator still creates these background assets if you want to return to a bitmap-backed design:
 
 - `include/book_background.h` - firmware bitmap stored in flash for `EPD_ShowPicture`
 - `data/book_background.pbm` - preview image you can open locally
@@ -56,6 +72,16 @@ python3 tools/generate_book_background.py
 
 The generated firmware asset is about 26.3 KB, which is reasonable for the ESP32-S3's flash. The preview is a plain PBM file so no Python imaging dependency is required.
 
+## Configure Time / WiFi
+
+Edit [src/main.cpp](/home/brett/Documents/projects/desk-clock/elecrow-book-clock/src/main.cpp:1) and set:
+
+- `kWifiSsid`
+- `kWifiPassword`
+- `kTimezoneTz`
+
+If WiFi credentials are left blank, the sample falls back to elapsed time starting from the compile timestamp. If WiFi is configured and NTP succeeds, the clock uses real local time.
+
 ## Build
 
 With PlatformIO:
@@ -69,13 +95,6 @@ With Arduino IDE, open `src/main.cpp` as a sketch source reference and copy `inc
 
 ## Design Notes
 
-This panel cannot show grayscale. The background fakes realism with:
+The active sketch uses a black card with white ornamental line work rather than a bitmap background. That keeps minute partial refreshes cleaner and makes the centered watchface easier to read on this narrow e-paper panel.
 
-- dense paper fiber texture
-- spine/gutter shadow
-- curved page-edge shading
-- deckled page borders
-- subtle stains and foxing
-- halftone-style dithering
-
-For even better realism, render a 272 x 792 grayscale image on a desktop, dither it to 1-bit, and replace the generated bitmap while keeping the same byte layout.
+If you want to go back to a bitmap-backed design later, the generator can still emit a firmware header and PBM preview from `tools/generate_book_background.py`.

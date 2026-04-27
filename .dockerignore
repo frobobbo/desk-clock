@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+.codex
+**/__pycache__
+**/.pytest_cache
+**/.pio
+**/.pio-core
+*.pyc
+

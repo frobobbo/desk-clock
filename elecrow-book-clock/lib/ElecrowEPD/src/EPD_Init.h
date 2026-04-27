@@ -36,5 +36,6 @@ void EPD_SetRAMSA(void);
 void EPD_Clear_R26A6H(void);
 void EPD_Display_Clear(void);
 void EPD_Display(const uint8_t *ImageBW);
+void EPD_Display_Partial(const uint8_t *ImageBW, const uint8_t *PreviousImageBW);
 void EPD_WhiteScreen_ALL_Fast(const unsigned char *datas);
 #endif
