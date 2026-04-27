@@ -9,6 +9,7 @@
 
 #include "EPD.h"
 #include "klyra_clock_font.h"
+#include "lmj_logo.h"
 
 namespace {
 
@@ -527,12 +528,18 @@ void drawQuoteSection()
   drawDividerOrnament(744);
 }
 
+void drawLogoSection()
+{
+  const int x = kCardX + kCardW / 2 - LMJ_LOGO_WIDTH / 2;
+  drawBitmapGlyph(x, 500, LMJ_LOGO_DATA, LMJ_LOGO_WIDTH, LMJ_LOGO_HEIGHT, WHITE);
+}
+
 void renderFullLayout(const tm& now)
 {
   drawStaticChrome();
   drawClockRegion(now);
   drawWeatherSection();
-  drawQuoteSection();
+  drawLogoSection();
 }
 
 void fullRefresh(const tm& now)
@@ -564,7 +571,7 @@ void partialClockRefresh(const tm& now)
   drawStaticChrome();
   drawClockRegion(now);
   drawWeatherSection();
-  drawQuoteSection();
+  drawLogoSection();
 
   Serial.printf("partial clock refresh %02d:%02d\n", now.tm_hour, now.tm_min);
   epdPowerOn();
