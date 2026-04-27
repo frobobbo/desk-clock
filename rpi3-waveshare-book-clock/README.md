@@ -18,6 +18,75 @@ The display code targets Waveshare's black/white Python module `epd7in5_V2`, wit
 
 ## Raspberry Pi Setup
 
+### Automated Install
+
+On the Raspberry Pi, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/frobobbo/desk-clock/main/rpi3-waveshare-book-clock/tools/install-pi.sh | sudo bash
+```
+
+The installer will:
+
+- install OS packages needed for Pillow, SPI, GPIO, and the Waveshare driver
+- enable SPI in Raspberry Pi config
+- clone this repository to `/opt/desk-clock`
+- create a Python virtual environment
+- install `rpi3-waveshare-book-clock/requirements.txt`
+- install a `desk-clock-rpi.service` systemd unit
+- install a `desk-clock-rpi.timer` that refreshes the display hourly
+- render a local preview to verify Python dependencies
+
+If SPI was not already enabled, reboot after install:
+
+```bash
+sudo reboot
+```
+
+Then verify SPI:
+
+```bash
+ls -l /dev/spidev*
+```
+
+Render to the display once:
+
+```bash
+sudo systemctl start desk-clock-rpi.service
+```
+
+View logs:
+
+```bash
+journalctl -u desk-clock-rpi.service -n 100 --no-pager
+```
+
+Check the hourly refresh timer:
+
+```bash
+systemctl status desk-clock-rpi.timer
+```
+
+Installer options can be passed as environment variables:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/frobobbo/desk-clock/main/rpi3-waveshare-book-clock/tools/install-pi.sh \
+  | sudo INSTALL_DIR=/opt/desk-clock APP_USER=pi RUN_ON_INSTALL=1 bash
+```
+
+Useful options:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `REPO_URL` | `https://github.com/frobobbo/desk-clock.git` | Git repository to clone |
+| `BRANCH` | `main` | Git branch to install |
+| `INSTALL_DIR` | `/opt/desk-clock` | Clone location |
+| `APP_USER` | invoking sudo user | User that runs the display service |
+| `CREATE_SERVICE` | `1` | Set to `0` to skip systemd unit/timer creation |
+| `RUN_ON_INSTALL` | `0` | Set to `1` to refresh the e-ink display immediately |
+
+### Manual Install
+
 Enable SPI:
 
 ```bash

@@ -118,7 +118,7 @@ def _get_json(url: str) -> Any:
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "desk-clock-config/0.2.2 (https://github.com/frobobbo/desk-clock)",
+            "User-Agent": "desk-clock-config/0.2.3 (https://github.com/frobobbo/desk-clock)",
         },
     )
     with urlopen(request, timeout=8) as response:
