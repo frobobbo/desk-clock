@@ -2,8 +2,18 @@ apiVersion: v1
 entries:
   desk-clock-config:
   - apiVersion: v2
+    appVersion: 0.2.5
+    created: "2026-04-27T21:24:25.704051659Z"
+    description: Internal API and web UI for configuring desk clock e-ink displays.
+    digest: 262e6c86c6d8ec1a46838a75dc4d8b699a3a7f1cdfe4370da8a195db63fff40c
+    name: desk-clock-config
+    type: application
+    urls:
+    - https://frobobbo.github.io/desk-clock/charts/desk-clock-config-0.2.5.tgz
+    version: 0.2.5
+  - apiVersion: v2
     appVersion: 0.2.4
-    created: "2026-04-27T16:56:19.356380308Z"
+    created: "2026-04-27T21:24:25.703570358Z"
     description: Internal API and web UI for configuring desk clock e-ink displays.
     digest: d3468773a3bf65fc69d42c5cd3dba2a5eeec23b4bf1b6306b0b2f48e24589a9c
     name: desk-clock-config
@@ -13,7 +23,7 @@ entries:
     version: 0.2.4
   - apiVersion: v2
     appVersion: 0.2.3
-    created: "2026-04-27T16:56:19.35600623Z"
+    created: "2026-04-27T21:24:25.703135196Z"
     description: Internal API and web UI for configuring desk clock e-ink displays.
     digest: c99a8cd4817336151d806114a1687656acbc5c49f639ecc8ddcfe866686cf9ea
     name: desk-clock-config
@@ -23,7 +33,7 @@ entries:
     version: 0.2.3
   - apiVersion: v2
     appVersion: 0.2.2
-    created: "2026-04-27T16:56:19.355617141Z"
+    created: "2026-04-27T21:24:25.70268243Z"
     description: Internal API and web UI for configuring desk clock e-ink displays.
     digest: da21d09fec7d2de0bf7ac5ce76434c890e6e6af812af8986e9660e5cdbb7732c
     name: desk-clock-config
@@ -33,7 +43,7 @@ entries:
     version: 0.2.2
   - apiVersion: v2
     appVersion: 0.2.1
-    created: "2026-04-27T16:56:19.355191183Z"
+    created: "2026-04-27T21:24:25.702251857Z"
     description: Internal API and web UI for configuring desk clock e-ink displays.
     digest: 2235f0a2d1a08f72dfb7d0e2c18e14c5d1b30c539502845d0b816a506bf5eae3
     name: desk-clock-config
@@ -43,7 +53,7 @@ entries:
     version: 0.2.1
   - apiVersion: v2
     appVersion: 0.2.0
-    created: "2026-04-27T16:56:19.354835656Z"
+    created: "2026-04-27T21:24:25.701780457Z"
     description: Internal API and web UI for configuring desk clock e-ink displays.
     digest: 928623f87c3d48fd93d12319c7a337dc9a44c8d45c68529c8d905598f3543f72
     name: desk-clock-config
@@ -53,7 +63,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-04-27T16:56:19.354447611Z"
+    created: "2026-04-27T21:24:25.701304128Z"
     description: Internal API and web UI for configuring desk clock e-ink displays.
     digest: 76a3114ba5ffe433541b0b9e829528369f1cdb6f95f330097ae780cea7c6d212
     name: desk-clock-config
@@ -61,4 +71,4 @@ entries:
     urls:
     - https://frobobbo.github.io/desk-clock/charts/desk-clock-config-0.1.0.tgz
     version: 0.1.0
-generated: "2026-04-27T16:56:19.353952184Z"
+generated: "2026-04-27T21:24:25.700650137Z"
