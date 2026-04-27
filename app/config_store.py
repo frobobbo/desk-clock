@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -22,6 +22,13 @@ class WeatherConfig(BaseModel):
 
 class QuoteConfig(BaseModel):
     enabled: bool = True
+    source: Literal[
+        "daily_author_quote",
+        "daily_bible_verse",
+        "daily_psalm",
+        "today_in_history",
+    ] = "daily_author_quote"
+    title: str = "Daily Quote"
     text: str = "A room without books is like a body without a soul."
     author: str = "Marcus Tullius Cicero"
 
@@ -47,6 +54,19 @@ class AppConfig(BaseModel):
             "elecrow": DisplayConfig(
                 headline="KLYRA",
                 subtitle="ESP32 5.79 e-paper",
+                weather=WeatherConfig(
+                    location_label="Rochester Hills, MI",
+                    temperature="72F",
+                    condition="Partly Cloudy",
+                    humidity="45%",
+                    wind="8 mph N",
+                ),
+                quote=QuoteConfig(
+                    source="daily_psalm",
+                    title="Daily Psalm",
+                    text="The Lord is my shepherd; I shall not want.",
+                    author="Psalm 23:1",
+                ),
                 footer_left="weather",
                 footer_right="clock",
             ),
@@ -116,4 +136,3 @@ class ConfigStore:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
-

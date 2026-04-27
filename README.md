@@ -62,6 +62,15 @@ Useful API endpoints:
 | `GET /api/displays/waveshare-rpi3` | Raspberry Pi 3 Waveshare payload |
 | `PUT /api/displays/{display_id}` | Update one display payload |
 
+The Elecrow payload has two configurable content sections: `weather` and `quote`. The quote section includes a `source` value with these supported options:
+
+| Source | Meaning |
+|---|---|
+| `daily_author_quote` | Daily quote from an author |
+| `daily_bible_verse` | Daily Bible verse |
+| `daily_psalm` | Daily Psalm |
+| `today_in_history` | Today in history |
+
 Configuration is stored as JSON at `/data/display-config.json` in the container. Override the path with `CONFIG_PATH` if needed.
 
 ## Container Builds

@@ -1,5 +1,8 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <time.h>
 #include <cstdio>
 #include <cstring>
@@ -9,8 +12,21 @@
 
 namespace {
 
-constexpr char kWifiSsid[] = "";
-constexpr char kWifiPassword[] = "";
+#ifndef WIFI_SSID
+#define WIFI_SSID ""
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD ""
+#endif
+
+#ifndef CONFIG_API_URL
+#define CONFIG_API_URL "https://deskclock.johnsons.casa"
+#endif
+
+constexpr char kWifiSsid[] = WIFI_SSID;
+constexpr char kWifiPassword[] = WIFI_PASSWORD;
+constexpr char kConfigApiUrl[] = CONFIG_API_URL;
 constexpr char kTimezoneTz[] = "EST5EDT,M3.2.0/2,M11.1.0/2";
 constexpr char kNtpServer[] = "pool.ntp.org";
 
@@ -27,33 +43,16 @@ constexpr int kClockRegionH = 230;
 uint8_t ImageBW[27200];
 uint8_t PreviousImageBW[27200];
 
-struct WeatherData {
-  int temperature_f;
-  const char* condition;
-};
-
-struct PsalmReading {
-  const char* reference;
-  const char* line1;
-  const char* line2;
-  const char* line3;
-};
-
-const WeatherData kHourlyWeatherCycle[] = {
-  {72, "Cloudy"},
-  {71, "Partly Cloudy"},
-  {69, "Rain Later"},
-  {68, "Cloudy"},
-};
-
-const PsalmReading kDailyPsalms[] = {
-  {"Psalm 23:1", "The Lord is my", "shepherd; I shall", "not want."},
-  {"Psalm 46:10", "Be still, and know", "that I am God.", ""},
-  {"Psalm 118:24", "This is the day", "which the Lord", "hath made."},
-  {"Psalm 27:1", "The Lord is my", "light and my", "salvation."},
-  {"Psalm 121:2", "My help cometh", "from the Lord,", "maker of heaven."},
-  {"Psalm 19:14", "Let the words of", "my mouth be", "acceptable."},
-  {"Psalm 91:2", "He is my refuge", "and my fortress:", "my God."},
+struct DisplayContent {
+  bool weather_enabled = true;
+  bool quote_enabled = true;
+  char weather_temperature[16] = "72F";
+  char weather_condition[48] = "Partly Cloudy";
+  char weather_location[48] = "Rochester Hills";
+  char quote_source[32] = "daily_psalm";
+  char quote_title[48] = "Daily Psalm";
+  char quote_text[220] = "The Lord is my shepherd; I shall not want.";
+  char quote_author[64] = "Psalm 23:1";
 };
 
 struct AppState {
@@ -63,8 +62,9 @@ struct AppState {
   time_t boot_epoch = 0;
   int last_minute = -1;
   int last_hour = -1;
-  size_t weather_index = 0;
-  WeatherData weather = kHourlyWeatherCycle[0];
+  unsigned long last_config_fetch_ms = 0;
+  uint16_t refresh_minutes = 30;
+  DisplayContent content;
 } state;
 
 void epdPowerOn()
@@ -94,6 +94,53 @@ int textWidth(const char* text, uint16_t size)
 void drawCenteredText(int center_x, int y, const char* text, uint16_t size, uint16_t color)
 {
   EPD_ShowString(center_x - textWidth(text, size) / 2, y, text, size, color);
+}
+
+void copyText(char* dest, size_t dest_len, const char* value, const char* fallback)
+{
+  const char* source = (value && strlen(value) > 0) ? value : fallback;
+  snprintf(dest, dest_len, "%s", source);
+}
+
+void drawWrappedCenteredText(int center_x, int y, const char* text, uint16_t size, uint16_t color, int max_chars, int max_lines, int line_gap)
+{
+  char buffer[240];
+  copyText(buffer, sizeof(buffer), text, "");
+
+  const char* cursor = buffer;
+  int line = 0;
+  while (*cursor && line < max_lines) {
+    while (*cursor == ' ') {
+      ++cursor;
+    }
+    if (!*cursor) {
+      break;
+    }
+
+    const char* line_start = cursor;
+    const char* best_break = nullptr;
+    int count = 0;
+    while (*cursor && count < max_chars) {
+      if (*cursor == ' ') {
+        best_break = cursor;
+      }
+      ++cursor;
+      ++count;
+    }
+
+    const char* line_end = cursor;
+    if (*cursor && best_break && best_break > line_start) {
+      line_end = best_break;
+      cursor = best_break + 1;
+    }
+
+    char line_text[80];
+    const size_t len = min(static_cast<size_t>(line_end - line_start), sizeof(line_text) - 1);
+    memcpy(line_text, line_start, len);
+    line_text[len] = '\0';
+    drawCenteredText(center_x, y + line * line_gap, line_text, size, color);
+    ++line;
+  }
 }
 
 void drawHorizontalRule(int x0, int y, int x1, uint16_t color)
@@ -223,6 +270,81 @@ void connectWifiAndTime()
   Serial.println("NTP sync failed, using elapsed-time fallback");
 }
 
+bool fetchDisplayConfig()
+{
+  state.last_config_fetch_ms = millis();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Config API skipped: WiFi is not connected");
+    return false;
+  }
+
+  char url[160];
+  snprintf(url, sizeof(url), "%s/api/displays/elecrow", kConfigApiUrl);
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.setTimeout(8000);
+  if (!http.begin(client, url)) {
+    Serial.println("Config API begin failed");
+    return false;
+  }
+
+  const int status = http.GET();
+  if (status != HTTP_CODE_OK) {
+    Serial.printf("Config API GET failed: %d\n", status);
+    http.end();
+    return false;
+  }
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, http.getStream());
+  http.end();
+  if (error) {
+    Serial.printf("Config API JSON parse failed: %s\n", error.c_str());
+    return false;
+  }
+
+  JsonObject weather = doc["weather"];
+  JsonObject quote = doc["quote"];
+
+  state.content.weather_enabled = weather["enabled"] | true;
+  copyText(state.content.weather_temperature, sizeof(state.content.weather_temperature),
+           weather["temperature"] | nullptr, "72F");
+  copyText(state.content.weather_condition, sizeof(state.content.weather_condition),
+           weather["condition"] | nullptr, "Partly Cloudy");
+  copyText(state.content.weather_location, sizeof(state.content.weather_location),
+           weather["location_label"] | nullptr, "Rochester Hills");
+
+  state.content.quote_enabled = quote["enabled"] | true;
+  copyText(state.content.quote_source, sizeof(state.content.quote_source),
+           quote["source"] | nullptr, "daily_psalm");
+  copyText(state.content.quote_title, sizeof(state.content.quote_title),
+           quote["title"] | nullptr, "Daily Psalm");
+  copyText(state.content.quote_text, sizeof(state.content.quote_text),
+           quote["text"] | nullptr, "The Lord is my shepherd; I shall not want.");
+  copyText(state.content.quote_author, sizeof(state.content.quote_author),
+           quote["author"] | nullptr, "Psalm 23:1");
+
+  state.refresh_minutes = doc["refresh_minutes"] | 30;
+  if (state.refresh_minutes == 0) {
+    state.refresh_minutes = 30;
+  }
+  Serial.println("Config API updated Elecrow display content");
+  return true;
+}
+
+void refreshDisplayConfigIfDue(bool force = false)
+{
+  const unsigned long interval_ms = static_cast<unsigned long>(state.refresh_minutes) * 60UL * 1000UL;
+  if (!force && state.last_config_fetch_ms != 0 && millis() - state.last_config_fetch_ms < interval_ms) {
+    return;
+  }
+  fetchDisplayConfig();
+}
+
 int monthIndex(const char* mon)
 {
   static const char* kMonths[] = {
@@ -272,12 +394,6 @@ tm currentLocalTime()
   struct tm out = {};
   localtime_r(&now, &out);
   return out;
-}
-
-void updateWeatherForHour(int hour)
-{
-  state.weather_index = static_cast<size_t>(hour) % (sizeof(kHourlyWeatherCycle) / sizeof(kHourlyWeatherCycle[0]));
-  state.weather = kHourlyWeatherCycle[state.weather_index];
 }
 
 void formatTimeStrings(const tm& now, char* hhmm, size_t hhmm_len, char* ampm, size_t ampm_len)
@@ -333,35 +449,37 @@ void drawStaticChrome()
 
 void drawWeatherSection()
 {
-  char temp[16];
-  snprintf(temp, sizeof(temp), "%dF", state.weather.temperature_f);
+  if (!state.content.weather_enabled) {
+    return;
+  }
+
   const int content_center_x = kCardX + kCardW / 2;
   const int icon_width = 62;
   const int gap = 14;
-  const int temp_width = textWidth(temp, 24);
+  const int temp_width = textWidth(state.content.weather_temperature, 24);
   const int total_width = icon_width + gap + temp_width;
   const int row_left = content_center_x - total_width / 2;
 
   drawDividerOrnament(372);
   drawCloudIcon(row_left, 394);
-  EPD_ShowString(row_left + icon_width + gap, 400, temp, 24, WHITE);
-  drawCenteredText(content_center_x, 450, state.weather.condition, 24, WHITE);
+  EPD_ShowString(row_left + icon_width + gap, 400, state.content.weather_temperature, 24, WHITE);
+  drawCenteredText(content_center_x, 450, state.content.weather_condition, 24, WHITE);
 }
 
-void drawPsalmSection(const tm& now)
+void drawQuoteSection()
 {
-  const size_t psalm_count = sizeof(kDailyPsalms) / sizeof(kDailyPsalms[0]);
-  const PsalmReading& psalm = kDailyPsalms[static_cast<size_t>(now.tm_yday) % psalm_count];
+  if (!state.content.quote_enabled) {
+    return;
+  }
+
   const int center_x = kCardX + kCardW / 2;
 
   drawDividerOrnament(520);
-  drawCenteredText(center_x, 548, "Daily Psalm", 24, WHITE);
-  drawCenteredText(center_x, 588, psalm.reference, 16, WHITE);
-  drawCenteredText(center_x, 630, psalm.line1, 16, WHITE);
-  drawCenteredText(center_x, 658, psalm.line2, 16, WHITE);
-  if (strlen(psalm.line3) > 0) {
-    drawCenteredText(center_x, 686, psalm.line3, 16, WHITE);
+  drawCenteredText(center_x, 548, state.content.quote_title, 24, WHITE);
+  if (strlen(state.content.quote_author) > 0) {
+    drawCenteredText(center_x, 588, state.content.quote_author, 16, WHITE);
   }
+  drawWrappedCenteredText(center_x, 630, state.content.quote_text, 16, WHITE, 22, 4, 28);
   drawDividerOrnament(744);
 }
 
@@ -370,12 +488,11 @@ void renderFullLayout(const tm& now)
   drawStaticChrome();
   drawClockRegion(now);
   drawWeatherSection();
-  drawPsalmSection(now);
+  drawQuoteSection();
 }
 
 void fullRefresh(const tm& now)
 {
-  updateWeatherForHour(now.tm_hour);
   renderFullLayout(now);
 
   Serial.printf("full refresh %02d:%02d\n", now.tm_hour, now.tm_min);
@@ -403,7 +520,7 @@ void partialClockRefresh(const tm& now)
   drawStaticChrome();
   drawClockRegion(now);
   drawWeatherSection();
-  drawPsalmSection(now);
+  drawQuoteSection();
 
   Serial.printf("partial clock refresh %02d:%02d\n", now.tm_hour, now.tm_min);
   epdPowerOn();
@@ -430,6 +547,7 @@ void setup()
   const tm now = currentLocalTime();
   state.last_minute = now.tm_min;
   state.last_hour = now.tm_hour;
+  refreshDisplayConfigIfDue(true);
   fullRefresh(now);
   Serial.println("setup complete");
 }
@@ -439,9 +557,20 @@ void loop()
   delay(1000);
   const tm now = currentLocalTime();
 
+  const unsigned long interval_ms = static_cast<unsigned long>(state.refresh_minutes) * 60UL * 1000UL;
+  if (state.last_config_fetch_ms == 0 || millis() - state.last_config_fetch_ms >= interval_ms) {
+    if (fetchDisplayConfig()) {
+      state.last_hour = now.tm_hour;
+      state.last_minute = now.tm_min;
+      fullRefresh(now);
+      return;
+    }
+  }
+
   if (now.tm_hour != state.last_hour) {
     state.last_hour = now.tm_hour;
     state.last_minute = now.tm_min;
+    refreshDisplayConfigIfDue(true);
     fullRefresh(now);
     return;
   }

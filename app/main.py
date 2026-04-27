@@ -14,7 +14,7 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "data/display-config.json"))
 
-app = FastAPI(title="Desk Clock Display Config", version="0.1.0")
+app = FastAPI(title="Desk Clock Display Config", version="0.2.0")
 store = ConfigStore(CONFIG_PATH)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

@@ -14,6 +14,8 @@ const fields = {
   weatherHumidity: document.querySelector("#weatherHumidity"),
   weatherWind: document.querySelector("#weatherWind"),
   quoteEnabled: document.querySelector("#quoteEnabled"),
+  quoteSource: document.querySelector("#quoteSource"),
+  quoteTitle: document.querySelector("#quoteTitle"),
   quoteText: document.querySelector("#quoteText"),
   quoteAuthor: document.querySelector("#quoteAuthor"),
   notes: document.querySelector("#notes"),
@@ -56,6 +58,8 @@ function render() {
   fields.weatherHumidity.value = display.weather.humidity;
   fields.weatherWind.value = display.weather.wind;
   fields.quoteEnabled.checked = display.quote.enabled;
+  fields.quoteSource.value = display.quote.source || "daily_author_quote";
+  fields.quoteTitle.value = display.quote.title || "Daily Quote";
   fields.quoteText.value = display.quote.text;
   fields.quoteAuthor.value = display.quote.author;
   fields.notes.value = display.notes;
@@ -85,6 +89,8 @@ function readForm() {
     },
     quote: {
       enabled: fields.quoteEnabled.checked,
+      source: fields.quoteSource.value,
+      title: fields.quoteTitle.value.trim(),
       text: fields.quoteText.value.trim(),
       author: fields.quoteAuthor.value.trim(),
     },
@@ -128,4 +134,3 @@ document.querySelectorAll(".display-tab").forEach((button) => {
 });
 
 loadConfig().catch((error) => showToast(error.message));
-

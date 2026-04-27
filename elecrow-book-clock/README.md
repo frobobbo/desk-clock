@@ -7,14 +7,15 @@ The current sketch renders a centered single-column "watchface" layout inspired 
 - top book icon
 - large live clock
 - weekday and date
-- weather block
-- next-event block
+- weather block from the internal config API
+- quote block from the internal config API
 
 Refresh behavior:
 
 - minute changes use `EPD_PartUpdate()` after redrawing only the clock region
-- hour changes trigger a full redraw and global refresh so weather/event sections can update cleanly
-- the weather block is currently demo data that rotates hourly; replace `kHourlyWeatherCycle` in `src/main.cpp` with a real weather source when you wire up networking
+- hour changes trigger a full redraw and global refresh so weather/quote sections can update cleanly
+- the firmware fetches display content from `https://deskclock.johnsons.casa/api/displays/elecrow`
+- `refresh_minutes` from the config API controls how often the device checks for updated weather/quote content
 
 The display driver itself exposes a `792 x 272` visible area on top of an `800 x 272` internal framebuffer. This sample keeps the vendor API intact and layers the layout on top of that framebuffer.
 
@@ -72,15 +73,29 @@ python3 tools/generate_book_background.py
 
 The generated firmware asset is about 26.3 KB, which is reasonable for the ESP32-S3's flash. The preview is a plain PBM file so no Python imaging dependency is required.
 
-## Configure Time / WiFi
+## Configure Time / WiFi / API
 
-Edit [src/main.cpp](/home/brett/Documents/projects/desk-clock/elecrow-book-clock/src/main.cpp:1) and set:
+The firmware can be built with WiFi credentials as PlatformIO build flags so secrets do not need to be committed:
 
-- `kWifiSsid`
-- `kWifiPassword`
-- `kTimezoneTz`
+```bash
+PLATFORMIO_BUILD_FLAGS='-DWIFI_SSID=\"your_ssid\" -DWIFI_PASSWORD=\"your_password\"' pio run
+```
+
+The default API endpoint is:
+
+```text
+https://deskclock.johnsons.casa
+```
+
+Override it at build time if needed:
+
+```bash
+PLATFORMIO_BUILD_FLAGS='-DWIFI_SSID=\"your_ssid\" -DWIFI_PASSWORD=\"your_password\" -DCONFIG_API_URL=\"https://deskclock.johnsons.casa\"' pio run
+```
 
 If WiFi credentials are left blank, the sample falls back to elapsed time starting from the compile timestamp. If WiFi is configured and NTP succeeds, the clock uses real local time.
+
+If the config API is unavailable, the screen keeps rendering with built-in fallback weather and quote values.
 
 ## Build
 
