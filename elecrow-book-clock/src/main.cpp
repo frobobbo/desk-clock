@@ -66,6 +66,7 @@ struct AppState {
   int last_minute = -1;
   int last_hour = -1;
   unsigned long last_config_fetch_ms = 0;
+  unsigned long last_config_attempt_ms = 0;
   uint16_t refresh_minutes = 30;
   DisplayContent content;
 } state;
@@ -103,6 +104,24 @@ void copyText(char* dest, size_t dest_len, const char* value, const char* fallba
 {
   const char* source = (value && strlen(value) > 0) ? value : fallback;
   snprintf(dest, dest_len, "%s", source);
+}
+
+void copyJsonText(char* dest, size_t dest_len, JsonObjectConst object, const char* key, const char* fallback)
+{
+  const char* value = object[key].as<const char*>();
+  copyText(dest, dest_len, value, fallback);
+}
+
+void ensureFahrenheitSuffix(char* value, size_t value_len)
+{
+  const size_t len = strlen(value);
+  if (len == 0 || len + 1 >= value_len) {
+    return;
+  }
+  if (strchr(value, 'F') || strchr(value, 'f')) {
+    return;
+  }
+  snprintf(value + len, value_len - len, "F");
 }
 
 void drawWrappedCenteredText(int center_x, int y, const char* text, uint16_t size, uint16_t color, int max_chars, int max_lines, int line_gap)
@@ -241,6 +260,61 @@ void drawKlyraTextCentered(int center_x, int y, const char* text, bool large, ui
   }
 }
 
+const uint8_t* klyraTemperatureGlyph(char ch, uint8_t* width, uint8_t* height, int* y_offset)
+{
+  *y_offset = 0;
+  if (ch >= '0' && ch <= '9') {
+    return klyraDateGlyph(ch, width, height);
+  }
+  if (ch == 'F' || ch == 'f') {
+    return klyraDateGlyph('F', width, height);
+  }
+  *width = 0;
+  *height = 0;
+  return nullptr;
+}
+
+int klyraTemperatureWidth(const char* text)
+{
+  int total_w = 0;
+  bool needs_gap = false;
+  for (const char* p = text; *p; ++p) {
+    uint8_t width = 0;
+    uint8_t height = 0;
+    int y_offset = 0;
+    const uint8_t* data = klyraTemperatureGlyph(*p, &width, &height, &y_offset);
+    if (!data || !width || !height) {
+      continue;
+    }
+    if (needs_gap) {
+      total_w += 6;
+    }
+    total_w += width;
+    needs_gap = true;
+  }
+  return total_w;
+}
+
+void drawKlyraTemperature(int x, int y, const char* text, uint16_t color)
+{
+  bool needs_gap = false;
+  for (const char* p = text; *p; ++p) {
+    uint8_t width = 0;
+    uint8_t height = 0;
+    int y_offset = 0;
+    const uint8_t* data = klyraTemperatureGlyph(*p, &width, &height, &y_offset);
+    if (!data || !width || !height) {
+      continue;
+    }
+    if (needs_gap) {
+      x += 6;
+    }
+    drawBitmapGlyph(x, y + y_offset, data, width, height, color);
+    x += width;
+    needs_gap = true;
+  }
+}
+
 void drawKlyraDateTextCentered(int center_x, int y, const char* text, uint16_t color)
 {
   int total_w = 0;
@@ -299,7 +373,7 @@ void connectWifiAndTime()
 
 bool fetchDisplayConfig()
 {
-  state.last_config_fetch_ms = millis();
+  state.last_config_attempt_ms = millis();
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Config API skipped: WiFi is not connected");
@@ -308,20 +382,29 @@ bool fetchDisplayConfig()
 
   char url[160];
   snprintf(url, sizeof(url), "%s/api/displays/elecrow", kConfigApiUrl);
-
-  WiFiClientSecure client;
-  client.setInsecure();
+  Serial.printf("Config API GET %s\n", url);
 
   HTTPClient http;
   http.setTimeout(15000);
-  if (!http.begin(client, url)) {
-    Serial.println("Config API begin failed");
+  WiFiClient plain_client;
+  WiFiClientSecure secure_client;
+
+  bool began = false;
+  if (strncmp(url, "https://", 8) == 0) {
+    secure_client.setInsecure();
+    began = http.begin(secure_client, url);
+  } else {
+    began = http.begin(plain_client, url);
+  }
+
+  if (!began) {
+    Serial.printf("Config API begin failed for %s\n", url);
     return false;
   }
 
   const int status = http.GET();
   if (status != HTTP_CODE_OK) {
-    Serial.printf("Config API GET failed: %d\n", status);
+    Serial.printf("Config API GET failed: %d for %s\n", status, url);
     http.end();
     return false;
   }
@@ -336,35 +419,50 @@ bool fetchDisplayConfig()
     return false;
   }
 
-  JsonObject weather = doc["weather"];
-  JsonObject quote = doc["quote"];
+  JsonObjectConst weather = doc["weather"].as<JsonObjectConst>();
+  JsonObjectConst quote = doc["quote"].as<JsonObjectConst>();
+  if (weather.isNull()) {
+    Serial.println("Config API response missing weather object");
+  }
+  if (quote.isNull()) {
+    Serial.println("Config API response missing quote object");
+  }
 
   state.content.weather_enabled = weather["enabled"] | true;
-  copyText(state.content.weather_temperature, sizeof(state.content.weather_temperature),
-           weather["temperature"] | nullptr, "72F");
-  copyText(state.content.weather_temp_high, sizeof(state.content.weather_temp_high),
-           weather["temp_high"] | nullptr, "");
-  copyText(state.content.weather_temp_low, sizeof(state.content.weather_temp_low),
-           weather["temp_low"] | nullptr, "");
-  copyText(state.content.weather_condition, sizeof(state.content.weather_condition),
-           weather["condition"] | nullptr, "Partly Cloudy");
-  copyText(state.content.weather_location, sizeof(state.content.weather_location),
-           weather["location_label"] | nullptr, "Rochester Hills");
+  copyJsonText(state.content.weather_temperature, sizeof(state.content.weather_temperature),
+               weather, "temperature", "72F");
+  copyJsonText(state.content.weather_temp_high, sizeof(state.content.weather_temp_high),
+               weather, "temp_high", "");
+  copyJsonText(state.content.weather_temp_low, sizeof(state.content.weather_temp_low),
+               weather, "temp_low", "");
+  ensureFahrenheitSuffix(state.content.weather_temperature, sizeof(state.content.weather_temperature));
+  ensureFahrenheitSuffix(state.content.weather_temp_high, sizeof(state.content.weather_temp_high));
+  ensureFahrenheitSuffix(state.content.weather_temp_low, sizeof(state.content.weather_temp_low));
+  copyJsonText(state.content.weather_condition, sizeof(state.content.weather_condition),
+               weather, "condition", "Partly Cloudy");
+  copyJsonText(state.content.weather_location, sizeof(state.content.weather_location),
+               weather, "location_label", "Rochester Hills");
 
   state.content.quote_enabled = quote["enabled"] | true;
-  copyText(state.content.quote_source, sizeof(state.content.quote_source),
-           quote["source"] | nullptr, "daily_psalm");
-  copyText(state.content.quote_title, sizeof(state.content.quote_title),
-           quote["title"] | nullptr, "Daily Psalm");
-  copyText(state.content.quote_text, sizeof(state.content.quote_text),
-           quote["text"] | nullptr, "The Lord is my shepherd; I shall not want.");
-  copyText(state.content.quote_author, sizeof(state.content.quote_author),
-           quote["author"] | nullptr, "Psalm 23:1");
+  copyJsonText(state.content.quote_source, sizeof(state.content.quote_source),
+               quote, "source", "daily_psalm");
+  copyJsonText(state.content.quote_title, sizeof(state.content.quote_title),
+               quote, "title", "Daily Psalm");
+  copyJsonText(state.content.quote_text, sizeof(state.content.quote_text),
+               quote, "text", "The Lord is my shepherd; I shall not want.");
+  copyJsonText(state.content.quote_author, sizeof(state.content.quote_author),
+               quote, "author", "Psalm 23:1");
 
   state.refresh_minutes = doc["refresh_minutes"] | 30;
   if (state.refresh_minutes == 0) {
     state.refresh_minutes = 30;
   }
+  state.last_config_fetch_ms = millis();
+  Serial.printf("Weather: temp=%s high=%s low=%s condition=%s\n",
+                state.content.weather_temperature,
+                state.content.weather_temp_high,
+                state.content.weather_temp_low,
+                state.content.weather_condition);
   Serial.println("Config API updated Elecrow display content");
   return true;
 }
@@ -463,8 +561,8 @@ void drawClockRegion(const tm& now)
   drawKlyraTextCentered(kCardX + kCardW / 2, 94, hhmm, true, WHITE);
   drawKlyraTextCentered(kCardX + kCardW / 2, 176, ampm, false, WHITE);
   drawHorizontalRule(kInnerX + 16, 218, kCardX + kCardW - 34, WHITE);
-  drawKlyraDateTextCentered(kCardX + kCardW / 2, 230, weekday, WHITE);
-  drawKlyraDateTextCentered(kCardX + kCardW / 2, 286, month_day, WHITE);
+  drawKlyraDateTextCentered(kCardX + kCardW / 2, 240, weekday, WHITE);
+  drawKlyraDateTextCentered(kCardX + kCardW / 2, 296, month_day, WHITE);
 }
 
 void drawStaticChrome()
@@ -489,7 +587,7 @@ void drawWeatherSection()
   const int content_center_x = kCardX + kCardW / 2;
   const int icon_width = 62;
   const int gap = 14;
-  const int temp_width = textWidth(state.content.weather_temperature, 24);
+  const int temp_width = klyraTemperatureWidth(state.content.weather_temperature);
   const int total_width = icon_width + gap + temp_width;
   const int row_left = content_center_x - total_width / 2;
 
@@ -498,14 +596,14 @@ void drawWeatherSection()
 
   drawDividerOrnament(352);
   drawCloudIcon(row_left, 374);
-  EPD_ShowString(row_left + icon_width + gap, 380, state.content.weather_temperature, 24, WHITE);
+  drawKlyraTemperature(row_left + icon_width + gap, 360, state.content.weather_temperature, WHITE);
   if (has_hl) {
     char hl[32];
-    snprintf(hl, sizeof(hl), "H:%s L:%s",
+    snprintf(hl, sizeof(hl), "H %s  L %s",
              state.content.weather_temp_high,
              state.content.weather_temp_low);
-    drawCenteredText(content_center_x, 412, hl, 16, WHITE);
-    drawCenteredText(content_center_x, 442, state.content.weather_condition, 24, WHITE);
+    drawCenteredText(content_center_x, 430, hl, 24, WHITE);
+    drawCenteredText(content_center_x, 462, state.content.weather_condition, 24, WHITE);
   } else {
     drawCenteredText(content_center_x, 430, state.content.weather_condition, 24, WHITE);
   }
@@ -530,6 +628,7 @@ void drawQuoteSection()
 
 void drawLogoSection()
 {
+  drawDividerOrnament(484);
   const int x = kCardX + kCardW / 2 - LMJ_LOGO_WIDTH / 2;
   drawBitmapGlyph(x, 500, LMJ_LOGO_DATA, LMJ_LOGO_WIDTH, LMJ_LOGO_HEIGHT, WHITE);
 }
@@ -609,7 +708,10 @@ void loop()
   const tm now = currentLocalTime();
 
   const unsigned long interval_ms = static_cast<unsigned long>(state.refresh_minutes) * 60UL * 1000UL;
-  if (state.last_config_fetch_ms == 0 || millis() - state.last_config_fetch_ms >= interval_ms) {
+  const bool has_config = state.last_config_fetch_ms != 0;
+  const bool retry_due = state.last_config_attempt_ms == 0 || millis() - state.last_config_attempt_ms >= 60000UL;
+  const bool refresh_due = has_config && millis() - state.last_config_fetch_ms >= interval_ms;
+  if ((!has_config && retry_due) || refresh_due) {
     if (fetchDisplayConfig()) {
       state.last_hour = now.tm_hour;
       state.last_minute = now.tm_min;

@@ -75,25 +75,30 @@ The generated firmware asset is about 26.3 KB, which is reasonable for the ESP32
 
 ## Configure Time / WiFi / API
 
-The firmware can be built with WiFi credentials as PlatformIO build flags so secrets do not need to be committed:
+The firmware reads WiFi and API settings from a local `secrets.ini` file. That file is ignored by git so credentials do not get committed.
 
 ```bash
-PLATFORMIO_BUILD_FLAGS='-DWIFI_SSID=\"your_ssid\" -DWIFI_PASSWORD=\"your_password\"' pio run
+cp secrets.ini.example secrets.ini
 ```
 
-The default API endpoint is:
+Then edit `secrets.ini`:
 
-```text
-https://deskclock.johnsons.casa
+```ini
+[secrets]
+wifi_ssid = your_ssid
+wifi_password = your_password
+config_api_url = http://deskclock.johnsons.casa
 ```
 
-Override it at build time if needed:
+Build the firmware after the secrets file is in place:
 
 ```bash
-PLATFORMIO_BUILD_FLAGS='-DWIFI_SSID=\"your_ssid\" -DWIFI_PASSWORD=\"your_password\" -DCONFIG_API_URL=\"https://deskclock.johnsons.casa\"' pio run
+pio run
 ```
 
 If WiFi credentials are left blank, the sample falls back to elapsed time starting from the compile timestamp. If WiFi is configured and NTP succeeds, the clock uses real local time.
+
+Use plain `http://` for the internal config API unless you specifically need HTTPS on the display. The ESP32 secure client can fail TLS handshakes with some reverse proxy/certificate combinations, while the internal API endpoint works over HTTP.
 
 If the config API is unavailable, the screen keeps rendering with built-in fallback weather and quote values.
 
@@ -102,7 +107,7 @@ If the config API is unavailable, the screen keeps rendering with built-in fallb
 WiFi credentials are compiled into the firmware at build time. To write them to the ELECROW display, build and upload in one command:
 
 ```bash
-PLATFORMIO_BUILD_FLAGS='-DWIFI_SSID=\"your_ssid\" -DWIFI_PASSWORD=\"your_password\" -DCONFIG_API_URL=\"https://deskclock.johnsons.casa\"' pio run -t upload
+pio run -t upload
 ```
 
 Then watch the serial log:

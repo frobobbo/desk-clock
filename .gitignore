@@ -4,3 +4,4 @@ __pycache__/
 src/config_local.py
 *.log
 .DS_Store
+elecrow-book-clock/secrets.ini

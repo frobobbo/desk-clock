@@ -24,7 +24,7 @@ def resolve_weather(weather: WeatherConfig) -> WeatherConfig:
     try:
         resolved = _fetch_weather(weather)
     except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
-        resolved = weather
+        return weather
 
     _CACHE[cache_key] = resolved.model_copy(deep=True)
     return resolved
@@ -38,8 +38,8 @@ def _fetch_weather(weather: WeatherConfig) -> WeatherConfig:
         enabled=weather.enabled,
         location_label=weather.location_label,
         temperature=f"{current['temp_F']}F",
-        temp_high=today["maxtempF"],
-        temp_low=today["mintempF"],
+        temp_high=f"{today['maxtempF']}F",
+        temp_low=f"{today['mintempF']}F",
         condition=current["weatherDesc"][0]["value"],
         humidity=f"{current['humidity']}%",
         wind=f"{current['windspeedMiles']} mph",
@@ -48,13 +48,14 @@ def _fetch_weather(weather: WeatherConfig) -> WeatherConfig:
 
 def _cache_key(location: str) -> str:
     now = datetime.now(timezone.utc)
-    return now.strftime("%Y-%m-%d-%H") + f":{location}"
+    half_hour = "00" if now.minute < 30 else "30"
+    return now.strftime("%Y-%m-%d-%H") + f":{half_hour}:{location}"
 
 
 def _get_json(url: str) -> Any:
     req = Request(url, headers={
         "Accept": "application/json",
-        "User-Agent": "desk-clock-config/0.2.4 (https://github.com/frobobbo/desk-clock)",
+        "User-Agent": "desk-clock-config/0.2.5 (https://github.com/frobobbo/desk-clock)",
     })
     with urlopen(req, timeout=8) as response:
         return json.loads(response.read().decode("utf-8"))
