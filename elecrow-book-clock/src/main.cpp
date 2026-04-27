@@ -38,7 +38,7 @@ constexpr int kCardW = 271;
 constexpr int kCardH = 791;
 constexpr int kInnerX = 24;
 constexpr int kClockRegionY = 88;
-constexpr int kClockRegionH = 230;
+constexpr int kClockRegionH = 250;
 
 uint8_t ImageBW[27200];
 uint8_t PreviousImageBW[27200];
@@ -47,6 +47,8 @@ struct DisplayContent {
   bool weather_enabled = true;
   bool quote_enabled = true;
   char weather_temperature[16] = "72F";
+  char weather_temp_high[16] = "";
+  char weather_temp_low[16] = "";
   char weather_condition[48] = "Partly Cloudy";
   char weather_location[48] = "Rochester Hills";
   char quote_source[32] = "daily_psalm";
@@ -238,6 +240,30 @@ void drawKlyraTextCentered(int center_x, int y, const char* text, bool large, ui
   }
 }
 
+void drawKlyraDateTextCentered(int center_x, int y, const char* text, uint16_t color)
+{
+  int total_w = 0;
+  for (const char* p = text; *p; ++p) {
+    uint8_t width = 0;
+    uint8_t height = 0;
+    klyraDateGlyph(*p, &width, &height);
+    total_w += width;
+    if (*(p + 1)) total_w += 3;
+  }
+
+  int x = center_x - total_w / 2;
+  for (const char* p = text; *p; ++p) {
+    uint8_t width = 0;
+    uint8_t height = 0;
+    const uint8_t* data = klyraDateGlyph(*p, &width, &height);
+    if (data && width && height) {
+      drawBitmapGlyph(x, y, data, width, height, color);
+    }
+    x += width;
+    if (*(p + 1)) x += 3;
+  }
+}
+
 void connectWifiAndTime()
 {
   if (strlen(kWifiSsid) == 0) {
@@ -313,6 +339,10 @@ bool fetchDisplayConfig()
   state.content.weather_enabled = weather["enabled"] | true;
   copyText(state.content.weather_temperature, sizeof(state.content.weather_temperature),
            weather["temperature"] | nullptr, "72F");
+  copyText(state.content.weather_temp_high, sizeof(state.content.weather_temp_high),
+           weather["temp_high"] | nullptr, "");
+  copyText(state.content.weather_temp_low, sizeof(state.content.weather_temp_low),
+           weather["temp_low"] | nullptr, "");
   copyText(state.content.weather_condition, sizeof(state.content.weather_condition),
            weather["condition"] | nullptr, "Partly Cloudy");
   copyText(state.content.weather_location, sizeof(state.content.weather_location),
@@ -430,8 +460,8 @@ void drawClockRegion(const tm& now)
   drawKlyraTextCentered(kCardX + kCardW / 2, 94, hhmm, true, WHITE);
   drawKlyraTextCentered(kCardX + kCardW / 2, 176, ampm, false, WHITE);
   drawHorizontalRule(kInnerX + 16, 218, kCardX + kCardW - 34, WHITE);
-  drawCenteredText(kCardX + kCardW / 2, 248, weekday, 24, WHITE);
-  drawCenteredText(kCardX + kCardW / 2, 286, month_day, 24, WHITE);
+  drawKlyraDateTextCentered(kCardX + kCardW / 2, 230, weekday, WHITE);
+  drawKlyraDateTextCentered(kCardX + kCardW / 2, 286, month_day, WHITE);
 }
 
 void drawStaticChrome()
@@ -460,10 +490,22 @@ void drawWeatherSection()
   const int total_width = icon_width + gap + temp_width;
   const int row_left = content_center_x - total_width / 2;
 
-  drawDividerOrnament(372);
-  drawCloudIcon(row_left, 394);
-  EPD_ShowString(row_left + icon_width + gap, 400, state.content.weather_temperature, 24, WHITE);
-  drawCenteredText(content_center_x, 450, state.content.weather_condition, 24, WHITE);
+  const bool has_hl = strlen(state.content.weather_temp_high) > 0
+                   || strlen(state.content.weather_temp_low) > 0;
+
+  drawDividerOrnament(352);
+  drawCloudIcon(row_left, 374);
+  EPD_ShowString(row_left + icon_width + gap, 380, state.content.weather_temperature, 24, WHITE);
+  if (has_hl) {
+    char hl[32];
+    snprintf(hl, sizeof(hl), "H:%s L:%s",
+             state.content.weather_temp_high,
+             state.content.weather_temp_low);
+    drawCenteredText(content_center_x, 412, hl, 16, WHITE);
+    drawCenteredText(content_center_x, 442, state.content.weather_condition, 24, WHITE);
+  } else {
+    drawCenteredText(content_center_x, 430, state.content.weather_condition, 24, WHITE);
+  }
 }
 
 void drawQuoteSection()
@@ -474,12 +516,12 @@ void drawQuoteSection()
 
   const int center_x = kCardX + kCardW / 2;
 
-  drawDividerOrnament(520);
-  drawCenteredText(center_x, 548, state.content.quote_title, 24, WHITE);
+  drawDividerOrnament(500);
+  drawCenteredText(center_x, 528, state.content.quote_title, 24, WHITE);
   if (strlen(state.content.quote_author) > 0) {
-    drawCenteredText(center_x, 588, state.content.quote_author, 16, WHITE);
+    drawCenteredText(center_x, 568, state.content.quote_author, 16, WHITE);
   }
-  drawWrappedCenteredText(center_x, 630, state.content.quote_text, 16, WHITE, 22, 4, 28);
+  drawWrappedCenteredText(center_x, 610, state.content.quote_text, 24, WHITE, 18, 4, 32);
   drawDividerOrnament(744);
 }
 

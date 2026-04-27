@@ -15,6 +15,8 @@ class WeatherConfig(BaseModel):
     enabled: bool = True
     location_label: str = "Rochester Hills, MI"
     temperature: str = "72F"
+    temp_high: str = ""
+    temp_low: str = ""
     condition: str = "Partly cloudy"
     humidity: str = "45%"
     wind: str = "8 mph N"

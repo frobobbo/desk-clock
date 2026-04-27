@@ -9,10 +9,6 @@ const fields = {
   refreshMinutes: document.querySelector("#refreshMinutes"),
   weatherEnabled: document.querySelector("#weatherEnabled"),
   weatherLocation: document.querySelector("#weatherLocation"),
-  weatherTemperature: document.querySelector("#weatherTemperature"),
-  weatherCondition: document.querySelector("#weatherCondition"),
-  weatherHumidity: document.querySelector("#weatherHumidity"),
-  weatherWind: document.querySelector("#weatherWind"),
   quoteEnabled: document.querySelector("#quoteEnabled"),
   quoteSource: document.querySelector("#quoteSource"),
   quoteTitle: document.querySelector("#quoteTitle"),
@@ -53,10 +49,6 @@ function render() {
   fields.refreshMinutes.value = display.refresh_minutes;
   fields.weatherEnabled.checked = display.weather.enabled;
   fields.weatherLocation.value = display.weather.location_label;
-  fields.weatherTemperature.value = display.weather.temperature;
-  fields.weatherCondition.value = display.weather.condition;
-  fields.weatherHumidity.value = display.weather.humidity;
-  fields.weatherWind.value = display.weather.wind;
   fields.quoteEnabled.checked = display.quote.enabled;
   fields.quoteSource.value = display.quote.source || "daily_author_quote";
   fields.quoteTitle.value = display.quote.title || "Daily Quote";
@@ -82,10 +74,6 @@ function readForm() {
     weather: {
       enabled: fields.weatherEnabled.checked,
       location_label: fields.weatherLocation.value.trim(),
-      temperature: fields.weatherTemperature.value.trim(),
-      condition: fields.weatherCondition.value.trim(),
-      humidity: fields.weatherHumidity.value.trim(),
-      wind: fields.weatherWind.value.trim(),
     },
     quote: {
       enabled: fields.quoteEnabled.checked,

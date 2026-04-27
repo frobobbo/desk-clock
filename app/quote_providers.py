@@ -9,6 +9,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .config_store import DisplayConfig, QuoteConfig
+from .weather_providers import resolve_weather
 
 
 _CACHE: dict[tuple[str, str], QuoteConfig] = {}
@@ -36,10 +37,10 @@ _PSALM_READINGS = [
 
 def resolve_display_content(display: DisplayConfig) -> DisplayConfig:
     resolved = display.model_copy(deep=True)
-    if not resolved.quote.enabled:
-        return resolved
-
-    resolved.quote = resolve_quote(resolved.quote)
+    if resolved.weather.enabled:
+        resolved.weather = resolve_weather(resolved.weather)
+    if resolved.quote.enabled:
+        resolved.quote = resolve_quote(resolved.quote)
     return resolved
 
 
@@ -118,7 +119,7 @@ def _get_json(url: str) -> Any:
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "desk-clock-config/0.2.3 (https://github.com/frobobbo/desk-clock)",
+            "User-Agent": "desk-clock-config/0.2.4 (https://github.com/frobobbo/desk-clock)",
         },
     )
     with urlopen(request, timeout=8) as response:
