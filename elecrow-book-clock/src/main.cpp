@@ -312,7 +312,7 @@ bool fetchDisplayConfig()
   client.setInsecure();
 
   HTTPClient http;
-  http.setTimeout(8000);
+  http.setTimeout(15000);
   if (!http.begin(client, url)) {
     Serial.println("Config API begin failed");
     return false;
@@ -325,9 +325,11 @@ bool fetchDisplayConfig()
     return false;
   }
 
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, http.getStream());
+  String body = http.getString();
   http.end();
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, body);
   if (error) {
     Serial.printf("Config API JSON parse failed: %s\n", error.c_str());
     return false;
