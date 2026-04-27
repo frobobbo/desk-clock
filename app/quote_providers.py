@@ -39,21 +39,23 @@ def resolve_display_content(display: DisplayConfig) -> DisplayConfig:
     if not resolved.quote.enabled:
         return resolved
 
-    source = resolved.quote.source
-    cache_key = (_today_key(), source)
+    resolved.quote = resolve_quote(resolved.quote)
+    return resolved
+
+
+def resolve_quote(quote: QuoteConfig) -> QuoteConfig:
+    cache_key = (_today_key(), quote.source)
     cached = _CACHE.get(cache_key)
     if cached:
-        resolved.quote = cached.model_copy(deep=True)
-        return resolved
+        return cached.model_copy(deep=True)
 
     try:
-        quote_config = _fetch_quote(source, resolved.quote)
+        quote_config = _fetch_quote(quote.source, quote)
     except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
-        quote_config = resolved.quote
+        quote_config = quote
 
     _CACHE[cache_key] = quote_config.model_copy(deep=True)
-    resolved.quote = quote_config
-    return resolved
+    return quote_config
 
 
 def _fetch_quote(source: str, fallback: QuoteConfig) -> QuoteConfig:
@@ -116,7 +118,7 @@ def _get_json(url: str) -> Any:
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "desk-clock-config/0.2.1 (https://github.com/frobobbo/desk-clock)",
+            "User-Agent": "desk-clock-config/0.2.2 (https://github.com/frobobbo/desk-clock)",
         },
     )
     with urlopen(request, timeout=8) as response:

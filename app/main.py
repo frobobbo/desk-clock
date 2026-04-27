@@ -7,15 +7,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config_store import AppConfig, ConfigStore, DisplayConfig
-from .quote_providers import resolve_display_content
+from .config_store import AppConfig, ConfigStore, DisplayConfig, QuoteConfig
+from .quote_providers import resolve_display_content, resolve_quote
 
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "data/display-config.json"))
 
-app = FastAPI(title="Desk Clock Display Config", version="0.2.1")
+app = FastAPI(title="Desk Clock Display Config", version="0.2.2")
 store = ConfigStore(CONFIG_PATH)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -59,3 +59,8 @@ def get_display(display_id: str) -> DisplayConfig:
 @app.put("/api/displays/{display_id}", response_model=AppConfig)
 def put_display(display_id: str, display: DisplayConfig) -> AppConfig:
     return store.update_display(display_id, display)
+
+
+@app.post("/api/quote/resolve", response_model=QuoteConfig)
+def post_quote_resolve(quote: QuoteConfig) -> QuoteConfig:
+    return resolve_quote(quote)

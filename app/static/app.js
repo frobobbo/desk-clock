@@ -114,6 +114,28 @@ async function saveConfig() {
   showToast("Saved");
 }
 
+async function resolveQuoteSource() {
+  const quote = readForm().quote;
+  fields.quoteSource.disabled = true;
+  const response = await fetch("/api/quote/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(quote),
+  });
+  fields.quoteSource.disabled = false;
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error || "Failed to fetch quote source");
+  }
+
+  const resolved = await response.json();
+  fields.quoteTitle.value = resolved.title || fields.quoteTitle.value;
+  fields.quoteText.value = resolved.text || fields.quoteText.value;
+  fields.quoteAuthor.value = resolved.author || fields.quoteAuthor.value;
+  showToast("Quote source loaded");
+}
+
 function showToast(message) {
   const toast = document.querySelector("#toast");
   toast.textContent = message;
@@ -123,6 +145,13 @@ function showToast(message) {
 
 document.querySelector("#saveButton").addEventListener("click", () => {
   saveConfig().catch((error) => showToast(error.message));
+});
+
+fields.quoteSource.addEventListener("change", () => {
+  resolveQuoteSource().catch((error) => {
+    fields.quoteSource.disabled = false;
+    showToast(error.message);
+  });
 });
 
 document.querySelectorAll(".display-tab").forEach((button) => {
