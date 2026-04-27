@@ -65,11 +65,11 @@ jobs:
 
           if [ -f /tmp/desk-clock-gh-pages/index.yaml ]; then
             helm repo index /tmp/desk-clock-gh-pages \
-              --url "${REPO_URL}/charts" \
+              --url "${REPO_URL}" \
               --merge /tmp/desk-clock-gh-pages/index.yaml
           else
             helm repo index /tmp/desk-clock-gh-pages \
-              --url "${REPO_URL}/charts"
+              --url "${REPO_URL}"
           fi
 
           git -C /tmp/desk-clock-gh-pages add index.yaml charts
@@ -79,4 +79,3 @@ jobs:
             git -C /tmp/desk-clock-gh-pages commit -m "Publish Helm chart"
             git -C /tmp/desk-clock-gh-pages push origin HEAD:gh-pages
           fi
-
