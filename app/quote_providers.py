@@ -9,10 +9,11 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .config_store import DisplayConfig, QuoteConfig
+from .literature_providers import resolve_literature_event
 from .weather_providers import resolve_weather
 
 
-_CACHE: dict[tuple[str, str], QuoteConfig] = {}
+_CACHE: dict[tuple[str, str, str], QuoteConfig] = {}
 
 _BIBLE_VERSES = [
     "John 3:16",
@@ -41,11 +42,15 @@ def resolve_display_content(display: DisplayConfig) -> DisplayConfig:
         resolved.weather = resolve_weather(resolved.weather)
     if resolved.quote.enabled:
         resolved.quote = resolve_quote(resolved.quote)
+    if resolved.upper.enabled:
+        resolved.upper = resolve_quote(resolved.upper)
+    if resolved.lower.enabled:
+        resolved.lower = resolve_quote(resolved.lower)
     return resolved
 
 
 def resolve_quote(quote: QuoteConfig) -> QuoteConfig:
-    cache_key = (_today_key(), quote.source)
+    cache_key = (_today_key(), quote.source, quote.title)
     cached = _CACHE.get(cache_key)
     if cached:
         return cached.model_copy(deep=True)
@@ -68,6 +73,14 @@ def _fetch_quote(source: str, fallback: QuoteConfig) -> QuoteConfig:
         return _fetch_bible_reference(_daily_pick(_PSALM_READINGS), "Daily Psalm", source, fallback)
     if source == "today_in_history":
         return _fetch_today_in_history(fallback)
+    if source == "on_this_day_literature":
+        return QuoteConfig(
+            enabled=fallback.enabled,
+            source="on_this_day_literature",
+            title=fallback.title or "On This Day in Literature",
+            text=resolve_literature_event(),
+            author=fallback.author,
+        )
     return fallback
 
 
@@ -119,7 +132,7 @@ def _get_json(url: str) -> Any:
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "desk-clock-config/0.2.5 (https://github.com/frobobbo/desk-clock)",
+            "User-Agent": "desk-clock-config/0.2.6 (https://github.com/frobobbo/desk-clock)",
         },
     )
     with urlopen(request, timeout=8) as response:

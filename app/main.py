@@ -8,7 +8,6 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_store import AppConfig, ConfigStore, DisplayConfig, QuoteConfig
-from .literature_providers import resolve_literature_event
 from .quote_providers import resolve_display_content, resolve_quote
 
 
@@ -16,7 +15,7 @@ APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 CONFIG_PATH = Path(os.getenv("CONFIG_PATH", "data/display-config.json"))
 
-app = FastAPI(title="Desk Clock Display Config", version="0.2.5")
+app = FastAPI(title="Desk Clock Display Config", version="0.2.6")
 store = ConfigStore(CONFIG_PATH)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -66,8 +65,8 @@ def get_waveshare_literary() -> dict[str, object]:
         raise HTTPException(status_code=404, detail="display not found") from exc
 
     payload = display.model_dump(mode="json")
-    payload["literature_title"] = "ON THIS DAY IN LITERATURE"
-    payload["literature_text"] = display.notes or resolve_literature_event()
+    payload["literature_title"] = display.lower.title
+    payload["literature_text"] = display.lower.text
     return payload
 
 

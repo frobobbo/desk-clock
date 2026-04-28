@@ -22,17 +22,25 @@ class WeatherConfig(BaseModel):
     wind: str = "8 mph N"
 
 
+ContentSource = Literal[
+    "daily_author_quote",
+    "daily_bible_verse",
+    "daily_psalm",
+    "today_in_history",
+    "on_this_day_literature",
+]
+
+
 class QuoteConfig(BaseModel):
     enabled: bool = True
-    source: Literal[
-        "daily_author_quote",
-        "daily_bible_verse",
-        "daily_psalm",
-        "today_in_history",
-    ] = "daily_author_quote"
+    source: ContentSource = "daily_author_quote"
     title: str = "Daily Quote"
     text: str = "A room without books is like a body without a soul."
     author: str = "Marcus Tullius Cicero"
+
+
+class SectionConfig(QuoteConfig):
+    pass
 
 
 class DisplayConfig(BaseModel):
@@ -43,6 +51,21 @@ class DisplayConfig(BaseModel):
     show_date: bool = True
     weather: WeatherConfig = Field(default_factory=WeatherConfig)
     quote: QuoteConfig = Field(default_factory=QuoteConfig)
+    upper: SectionConfig = Field(
+        default_factory=lambda: SectionConfig(
+            title="Literary Quote of the Day",
+            text="I declare after all there is no enjoyment like reading!",
+            author="Jane Austen",
+        )
+    )
+    lower: SectionConfig = Field(
+        default_factory=lambda: SectionConfig(
+            source="on_this_day_literature",
+            title="On This Day in Literature",
+            text="In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday.",
+            author="",
+        )
+    )
     footer_left: str = "~ i ~"
     footer_right: str = "~ ii ~"
     refresh_minutes: int = Field(default=30, ge=1, le=1440)
@@ -75,6 +98,18 @@ class AppConfig(BaseModel):
             "waveshare-rpi3": DisplayConfig(
                 headline="The Daily Chronicle",
                 subtitle="Raspberry Pi 3 + Waveshare 7.5 B",
+                upper=SectionConfig(
+                    source="daily_author_quote",
+                    title="Literary Quote of the Day",
+                    text="I declare after all there is no enjoyment like reading!",
+                    author="Jane Austen",
+                ),
+                lower=SectionConfig(
+                    source="on_this_day_literature",
+                    title="On This Day in Literature",
+                    text="In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday.",
+                    author="",
+                ),
             ),
         }
     )
@@ -94,7 +129,7 @@ class ConfigStore:
 
             with self.path.open("r", encoding="utf-8") as handle:
                 data: dict[str, Any] = json.load(handle)
-            return AppConfig.model_validate(data)
+            return _load_config(data)
 
     def replace(self, config: AppConfig) -> AppConfig:
         with self._lock:
@@ -114,7 +149,7 @@ class ConfigStore:
         if not self.path.exists():
             return AppConfig(updated_at=_now())
         with self.path.open("r", encoding="utf-8") as handle:
-            return AppConfig.model_validate(json.load(handle))
+            return _load_config(json.load(handle))
 
     def _write_unlocked(self, config: AppConfig) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -138,3 +173,13 @@ class ConfigStore:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _load_config(data: dict[str, Any]) -> AppConfig:
+    config = AppConfig.model_validate(data)
+    displays = data.get("displays", {})
+    pi_raw = displays.get("waveshare-rpi3", {}) if isinstance(displays, dict) else {}
+    pi_display = config.displays.get("waveshare-rpi3")
+    if pi_display and isinstance(pi_raw, dict) and "upper" not in pi_raw:
+        pi_display.upper = SectionConfig.model_validate(pi_display.quote.model_dump(mode="json"))
+    return config

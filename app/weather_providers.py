@@ -55,7 +55,7 @@ def _cache_key(location: str) -> str:
 def _get_json(url: str) -> Any:
     req = Request(url, headers={
         "Accept": "application/json",
-        "User-Agent": "desk-clock-config/0.2.5 (https://github.com/frobobbo/desk-clock)",
+        "User-Agent": "desk-clock-config/0.2.6 (https://github.com/frobobbo/desk-clock)",
     })
     with urlopen(req, timeout=8) as response:
         return json.loads(response.read().decode("utf-8"))

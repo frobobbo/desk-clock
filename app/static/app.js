@@ -14,6 +14,16 @@ const fields = {
   quoteTitle: document.querySelector("#quoteTitle"),
   quoteText: document.querySelector("#quoteText"),
   quoteAuthor: document.querySelector("#quoteAuthor"),
+  upperEnabled: document.querySelector("#upperEnabled"),
+  upperSource: document.querySelector("#upperSource"),
+  upperTitle: document.querySelector("#upperTitle"),
+  upperText: document.querySelector("#upperText"),
+  upperAuthor: document.querySelector("#upperAuthor"),
+  lowerEnabled: document.querySelector("#lowerEnabled"),
+  lowerSource: document.querySelector("#lowerSource"),
+  lowerTitle: document.querySelector("#lowerTitle"),
+  lowerText: document.querySelector("#lowerText"),
+  lowerAuthor: document.querySelector("#lowerAuthor"),
   notes: document.querySelector("#notes"),
 };
 
@@ -54,14 +64,71 @@ function render() {
   fields.quoteTitle.value = display.quote.title || "Daily Quote";
   fields.quoteText.value = display.quote.text;
   fields.quoteAuthor.value = display.quote.author;
+  writeSection("upper", display.upper || defaultUpperSection());
+  writeSection("lower", display.lower || defaultLowerSection());
   fields.notes.value = display.notes;
+
+  const isPiDisplay = activeDisplay === "waveshare-rpi3";
+  document.querySelector("#quoteSection").hidden = isPiDisplay;
+  document.querySelector("#weatherSection").hidden = isPiDisplay;
+  document.querySelector("#piSections").hidden = !isPiDisplay;
 
   document.querySelectorAll(".display-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.display === activeDisplay);
   });
 }
 
+function defaultUpperSection() {
+  return {
+    enabled: true,
+    source: "daily_author_quote",
+    title: "Literary Quote of the Day",
+    text: "I declare after all there is no enjoyment like reading!",
+    author: "Jane Austen",
+  };
+}
+
+function defaultLowerSection() {
+  return {
+    enabled: true,
+    source: "on_this_day_literature",
+    title: "On This Day in Literature",
+    text: "In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday.",
+    author: "",
+  };
+}
+
+function writeSection(name, section) {
+  fields[`${name}Enabled`].checked = section.enabled;
+  fields[`${name}Source`].value = section.source || "daily_author_quote";
+  fields[`${name}Title`].value = section.title || "";
+  fields[`${name}Text`].value = section.text || "";
+  fields[`${name}Author`].value = section.author || "";
+}
+
+function readSection(name) {
+  return {
+    enabled: fields[`${name}Enabled`].checked,
+    source: fields[`${name}Source`].value,
+    title: fields[`${name}Title`].value.trim(),
+    text: fields[`${name}Text`].value.trim(),
+    author: fields[`${name}Author`].value.trim(),
+  };
+}
+
 function readForm() {
+  const current = config.displays[activeDisplay] || {};
+  const isPiDisplay = activeDisplay === "waveshare-rpi3";
+  const quote = {
+    enabled: fields.quoteEnabled.checked,
+    source: fields.quoteSource.value,
+    title: fields.quoteTitle.value.trim(),
+    text: fields.quoteText.value.trim(),
+    author: fields.quoteAuthor.value.trim(),
+  };
+  const upper = isPiDisplay ? readSection("upper") : current.upper || defaultUpperSection();
+  const lower = isPiDisplay ? readSection("lower") : current.lower || defaultLowerSection();
+
   return {
     enabled: fields.enabled.checked,
     headline: fields.headline.value.trim(),
@@ -75,13 +142,9 @@ function readForm() {
       enabled: fields.weatherEnabled.checked,
       location_label: fields.weatherLocation.value.trim(),
     },
-    quote: {
-      enabled: fields.quoteEnabled.checked,
-      source: fields.quoteSource.value,
-      title: fields.quoteTitle.value.trim(),
-      text: fields.quoteText.value.trim(),
-      author: fields.quoteAuthor.value.trim(),
-    },
+    quote,
+    upper,
+    lower,
     notes: fields.notes.value.trim(),
   };
 }
@@ -103,7 +166,13 @@ async function saveConfig() {
 }
 
 async function resolveQuoteSource() {
-  const quote = readForm().quote;
+  const quote = {
+    enabled: fields.quoteEnabled.checked,
+    source: fields.quoteSource.value,
+    title: fields.quoteTitle.value.trim(),
+    text: fields.quoteText.value.trim(),
+    author: fields.quoteAuthor.value.trim(),
+  };
   fields.quoteSource.disabled = true;
   const response = await fetch("/api/quote/resolve", {
     method: "POST",
@@ -124,6 +193,29 @@ async function resolveQuoteSource() {
   showToast("Quote source loaded");
 }
 
+async function resolveSectionSource(name) {
+  const source = fields[`${name}Source`];
+  const section = readSection(name);
+  source.disabled = true;
+  const response = await fetch("/api/quote/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(section),
+  });
+  source.disabled = false;
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error || "Failed to fetch section source");
+  }
+
+  const resolved = await response.json();
+  fields[`${name}Title`].value = resolved.title || fields[`${name}Title`].value;
+  fields[`${name}Text`].value = resolved.text || fields[`${name}Text`].value;
+  fields[`${name}Author`].value = resolved.author || "";
+  showToast(`${name === "upper" ? "Upper" : "Lower"} source loaded`);
+}
+
 function showToast(message) {
   const toast = document.querySelector("#toast");
   toast.textContent = message;
@@ -138,6 +230,20 @@ document.querySelector("#saveButton").addEventListener("click", () => {
 fields.quoteSource.addEventListener("change", () => {
   resolveQuoteSource().catch((error) => {
     fields.quoteSource.disabled = false;
+    showToast(error.message);
+  });
+});
+
+fields.upperSource.addEventListener("change", () => {
+  resolveSectionSource("upper").catch((error) => {
+    fields.upperSource.disabled = false;
+    showToast(error.message);
+  });
+});
+
+fields.lowerSource.addEventListener("change", () => {
+  resolveSectionSource("lower").catch((error) => {
+    fields.lowerSource.disabled = false;
     showToast(error.message);
   });
 });

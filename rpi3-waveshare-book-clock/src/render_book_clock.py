@@ -32,10 +32,12 @@ PAPER = 236
 class ClockData:
     now: datetime
     greeting: str = ""
-    quote: str = "I declare after all there is no enjoyment like reading!"
-    author: str = "Jane Austen"
-    literature_title: str = "ON THIS DAY IN LITERATURE"
-    literature_text: str = "In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday."
+    upper_title: str = "LITERARY QUOTE OF THE DAY"
+    upper_text: str = "I declare after all there is no enjoyment like reading!"
+    upper_author: str = "Jane Austen"
+    lower_title: str = "ON THIS DAY IN LITERATURE"
+    lower_text: str = "In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday."
+    lower_author: str = ""
 
 
 def greeting_for(now: datetime) -> str:
@@ -54,18 +56,23 @@ def greeting_for(now: datetime) -> str:
 def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
     api_url = (api_url or os.getenv("CONFIG_API_URL") or "http://deskclock.johnsons.casa").rstrip("/")
     url = f"{api_url}/api/displays/waveshare-rpi3/literary"
-    request = Request(url, headers={"Accept": "application/json", "User-Agent": "desk-clock-rpi3/0.2.5"})
+    request = Request(url, headers={"Accept": "application/json", "User-Agent": "desk-clock-rpi3/0.2.6"})
     try:
         with urlopen(request, timeout=10) as response:
             payload = json.loads(response.read().decode("utf-8"))
+        fallback = ClockData(now=now)
+        upper = payload.get("upper") if isinstance(payload.get("upper"), dict) else {}
+        lower = payload.get("lower") if isinstance(payload.get("lower"), dict) else {}
         quote = payload.get("quote") if isinstance(payload.get("quote"), dict) else {}
         return ClockData(
             now=now,
             greeting=greeting_for(now),
-            quote=str(quote.get("text") or payload.get("quote") or ClockData(now=now).quote),
-            author=str(quote.get("author") or payload.get("author") or ClockData(now=now).author),
-            literature_title=str(payload.get("literature_title") or ClockData(now=now).literature_title),
-            literature_text=str(payload.get("literature_text") or ClockData(now=now).literature_text),
+            upper_title=str(upper.get("title") or quote.get("title") or fallback.upper_title),
+            upper_text=str(upper.get("text") or quote.get("text") or payload.get("quote") or fallback.upper_text),
+            upper_author=str(upper.get("author") or quote.get("author") or payload.get("author") or fallback.upper_author),
+            lower_title=str(lower.get("title") or payload.get("literature_title") or fallback.lower_title),
+            lower_text=str(lower.get("text") or payload.get("literature_text") or fallback.lower_text),
+            lower_author=str(lower.get("author") or fallback.lower_author),
         )
     except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
         return ClockData(now=now, greeting=greeting_for(now))
@@ -173,20 +180,22 @@ def draw_layout(data: ClockData) -> Image.Image:
 
     draw = ImageDraw.Draw(image)
     title = font(31, bold=True)
-    date_font = font(20)
     quote_font = font(35)
     author_font = font(23)
     small_caps = font(18, bold=True)
     body = font(23)
 
     centered_text(draw, WIDTH // 2, 114, data.greeting or greeting_for(data.now), title)
-    centered_text(draw, WIDTH // 2, 150, data.now.strftime("%A, %B %-d, %Y"), date_font)
 
-    y = wrapped_centered(draw, WIDTH // 2, 224, data.quote, quote_font, width=24, line_gap=48, max_lines=4)
-    centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.author}", author_font)
+    centered_text(draw, WIDTH // 2, 198, data.upper_title.upper(), small_caps)
+    y = wrapped_centered(draw, WIDTH // 2, 232, data.upper_text, quote_font, width=24, line_gap=48, max_lines=4)
+    if data.upper_author:
+        centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.upper_author}", author_font)
 
-    centered_text(draw, WIDTH // 2, 494, data.literature_title.upper(), small_caps)
-    wrapped_centered(draw, WIDTH // 2, 532, data.literature_text, body, width=30, line_gap=34, max_lines=4)
+    centered_text(draw, WIDTH // 2, 494, data.lower_title.upper(), small_caps)
+    y = wrapped_centered(draw, WIDTH // 2, 532, data.lower_text, body, width=30, line_gap=34, max_lines=4)
+    if data.lower_author:
+        centered_text(draw, WIDTH // 2, min(y + 4, 680), data.lower_author, font(18, italic=True))
 
     image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=120, threshold=3))
     return image
