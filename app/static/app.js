@@ -9,11 +9,6 @@ const fields = {
   refreshMinutes: document.querySelector("#refreshMinutes"),
   weatherEnabled: document.querySelector("#weatherEnabled"),
   weatherLocation: document.querySelector("#weatherLocation"),
-  quoteEnabled: document.querySelector("#quoteEnabled"),
-  quoteSource: document.querySelector("#quoteSource"),
-  quoteTitle: document.querySelector("#quoteTitle"),
-  quoteText: document.querySelector("#quoteText"),
-  quoteAuthor: document.querySelector("#quoteAuthor"),
   upperEnabled: document.querySelector("#upperEnabled"),
   upperSource: document.querySelector("#upperSource"),
   upperTitle: document.querySelector("#upperTitle"),
@@ -59,11 +54,6 @@ function render() {
   fields.refreshMinutes.value = display.refresh_minutes;
   fields.weatherEnabled.checked = display.weather.enabled;
   fields.weatherLocation.value = display.weather.location_label;
-  fields.quoteEnabled.checked = display.quote.enabled;
-  fields.quoteSource.value = display.quote.source || "daily_author_quote";
-  fields.quoteTitle.value = display.quote.title || "Daily Quote";
-  fields.quoteText.value = display.quote.text;
-  fields.quoteAuthor.value = display.quote.author;
   writeSection("upper", display.upper || defaultUpperSection());
   writeSection("lower", display.lower || defaultLowerSection());
   fields.notes.value = display.notes;
@@ -81,7 +71,6 @@ function setSectionVisibility() {
 
   document.querySelector("#displaySection").hidden = isElecrowDisplay;
   document.querySelector("#weatherSection").hidden = !isElecrowDisplay;
-  document.querySelector("#quoteSection").hidden = true;
   document.querySelector("#piSections").hidden = !isPiDisplay;
   document.querySelector("#notesSection").hidden = isElecrowDisplay;
 }
@@ -127,13 +116,7 @@ function readSection(name) {
 function readForm() {
   const current = config.displays[activeDisplay] || {};
   const isPiDisplay = activeDisplay === "waveshare-rpi3";
-  const quote = {
-    enabled: fields.quoteEnabled.checked,
-    source: fields.quoteSource.value,
-    title: fields.quoteTitle.value.trim(),
-    text: fields.quoteText.value.trim(),
-    author: fields.quoteAuthor.value.trim(),
-  };
+  const quote = current.quote || defaultUpperSection();
   const upper = isPiDisplay ? readSection("upper") : current.upper || defaultUpperSection();
   const lower = isPiDisplay ? readSection("lower") : current.lower || defaultLowerSection();
 
@@ -173,34 +156,6 @@ async function saveConfig() {
   showToast("Saved");
 }
 
-async function resolveQuoteSource() {
-  const quote = {
-    enabled: fields.quoteEnabled.checked,
-    source: fields.quoteSource.value,
-    title: fields.quoteTitle.value.trim(),
-    text: fields.quoteText.value.trim(),
-    author: fields.quoteAuthor.value.trim(),
-  };
-  fields.quoteSource.disabled = true;
-  const response = await fetch("/api/quote/resolve", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(quote),
-  });
-  fields.quoteSource.disabled = false;
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || "Failed to fetch quote source");
-  }
-
-  const resolved = await response.json();
-  fields.quoteTitle.value = resolved.title || fields.quoteTitle.value;
-  fields.quoteText.value = resolved.text || fields.quoteText.value;
-  fields.quoteAuthor.value = resolved.author || fields.quoteAuthor.value;
-  showToast("Quote source loaded");
-}
-
 async function resolveSectionSource(name) {
   const source = fields[`${name}Source`];
   const section = readSection(name);
@@ -233,13 +188,6 @@ function showToast(message) {
 
 document.querySelector("#saveButton").addEventListener("click", () => {
   saveConfig().catch((error) => showToast(error.message));
-});
-
-fields.quoteSource.addEventListener("change", () => {
-  resolveQuoteSource().catch((error) => {
-    fields.quoteSource.disabled = false;
-    showToast(error.message);
-  });
 });
 
 fields.upperSource.addEventListener("change", () => {

@@ -10,6 +10,7 @@ import os
 import textwrap
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
@@ -26,6 +27,7 @@ HEIGHT = 800
 INK = 28
 MID = 122
 PAPER = 236
+DEFAULT_TIMEZONE = "America/New_York"
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,15 @@ def greeting_for(now: datetime) -> str:
     else:
         period = "night"
     return f"Good {period}, Lyndsay"
+
+
+def local_now() -> datetime:
+    name = os.getenv("APP_TIMEZONE") or os.getenv("TZ") or DEFAULT_TIMEZONE
+    try:
+        tz = ZoneInfo(name)
+    except ZoneInfoNotFoundError:
+        tz = ZoneInfo(DEFAULT_TIMEZONE)
+    return datetime.now(tz)
 
 
 def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
@@ -199,9 +210,7 @@ def draw_layout(data: ClockData) -> Image.Image:
     if data.upper_author:
         centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.upper_author}", author_font)
 
-    small_caps = font(18, bold=True)
-    centered_text(draw, WIDTH // 2, 494, data.lower_title.upper(), small_caps)
-    y = wrapped_centered(draw, WIDTH // 2, 532, data.lower_text, body, width=30, line_gap=34, max_lines=4)
+    y = wrapped_centered(draw, WIDTH // 2, 494, data.lower_text, body, width=30, line_gap=34, max_lines=5)
     if data.lower_author:
         centered_text(draw, WIDTH // 2, min(y + 4, 680), data.lower_author, font(18, italic=True))
 
@@ -231,7 +240,7 @@ def main() -> None:
     parser.add_argument("--time", help="ISO datetime to render instead of current local time")
     parser.add_argument("--config-api-url", help="Config API base URL")
     args = parser.parse_args()
-    now = datetime.fromisoformat(args.time) if args.time else datetime.now()
+    now = datetime.fromisoformat(args.time) if args.time else local_now()
     save_outputs(fetch_clock_data(now, args.config_api_url))
     print(f"wrote previews to {GENERATED}")
 

@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from .time_utils import now
 
 
 class WeatherConfig(BaseModel):
@@ -172,7 +173,7 @@ class ConfigStore:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return now().isoformat(timespec="seconds")
 
 
 def _load_config(data: dict[str, Any]) -> AppConfig:

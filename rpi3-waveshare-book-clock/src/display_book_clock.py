@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
 import logging
 import os
 from pathlib import Path
 import sys
 
-from render_book_clock import GENERATED, fetch_clock_data, render, save_outputs
+from render_book_clock import GENERATED, fetch_clock_data, local_now, render, save_outputs
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -41,7 +40,7 @@ def display(config_api_url: str | None = None) -> None:
                 "RaspberryPi_JetsonNano/python/lib directory."
             ) from exc
 
-    black, _ = render(fetch_clock_data(datetime.now(), config_api_url))
+    black, _ = render(fetch_clock_data(local_now(), config_api_url))
     epd = epd7in5_V2.EPD()
     logging.info("initializing Waveshare 7.5in black/white display")
     epd.init()
@@ -59,7 +58,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.preview_only or not args.display:
-        save_outputs(fetch_clock_data(datetime.now(), args.config_api_url))
+        save_outputs(fetch_clock_data(local_now(), args.config_api_url))
         logging.info("wrote preview files to %s", GENERATED)
         if not args.display:
             return

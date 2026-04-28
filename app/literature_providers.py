@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+
+from .time_utils import now as app_now
 
 
 _CACHE: dict[str, str] = {}
@@ -46,7 +48,7 @@ _FALLBACK_LITERATURE_EVENTS = [
 
 
 def resolve_literature_event(now: datetime | None = None) -> str:
-    now = now or datetime.now(timezone.utc)
+    now = now or app_now()
     cache_key = now.strftime("%Y-%m-%d")
     cached = _CACHE.get(cache_key)
     if cached:

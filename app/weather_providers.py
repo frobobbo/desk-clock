@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from typing import Any
 from urllib.error import URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .config_store import WeatherConfig
+from .time_utils import now
 
 _CACHE: dict[str, WeatherConfig] = {}
 
@@ -47,9 +47,9 @@ def _fetch_weather(weather: WeatherConfig) -> WeatherConfig:
 
 
 def _cache_key(location: str) -> str:
-    now = datetime.now(timezone.utc)
-    half_hour = "00" if now.minute < 30 else "30"
-    return now.strftime("%Y-%m-%d-%H") + f":{half_hour}:{location}"
+    current = now()
+    half_hour = "00" if current.minute < 30 else "30"
+    return current.strftime("%Y-%m-%d-%H") + f":{half_hour}:{location}"
 
 
 def _get_json(url: str) -> Any:

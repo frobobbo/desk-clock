@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import datetime, timezone
 from typing import Any
 from urllib.error import URLError
 from urllib.parse import quote
@@ -10,6 +9,7 @@ from urllib.request import Request, urlopen
 
 from .config_store import DisplayConfig, QuoteConfig
 from .literature_providers import resolve_literature_event
+from .time_utils import now
 from .weather_providers import resolve_weather
 
 
@@ -109,10 +109,10 @@ def _fetch_bible_reference(reference: str, title: str, source: str, fallback: Qu
 
 
 def _fetch_today_in_history(fallback: QuoteConfig) -> QuoteConfig:
-    now = datetime.now(timezone.utc)
+    today = now()
     url = "https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{:02d}/{:02d}".format(
-        now.month,
-        now.day,
+        today.month,
+        today.day,
     )
     data = _get_json(url)
     event = _daily_pick(data["events"])
@@ -142,11 +142,11 @@ def _get_json(url: str) -> Any:
 def _daily_pick(items: list[Any]) -> Any:
     if not items:
         raise ValueError("no provider items returned")
-    return deepcopy(items[datetime.now(timezone.utc).timetuple().tm_yday % len(items)])
+    return deepcopy(items[now().timetuple().tm_yday % len(items)])
 
 
 def _today_key() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return now().strftime("%Y-%m-%d")
 
 
 def _clean_bible_text(text: str) -> str:

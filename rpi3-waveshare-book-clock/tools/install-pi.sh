@@ -104,6 +104,8 @@ echo "Writing runtime environment..."
 cat >/etc/desk-clock-rpi.env <<EOF
 PYTHONUNBUFFERED=1
 PYTHONPATH=${PYTHONPATH_VALUE}
+TZ=America/New_York
+APP_TIMEZONE=America/New_York
 EOF
 
 chown -R "${APP_USER}:${APP_GROUP}" "${INSTALL_DIR}"
