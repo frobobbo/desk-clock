@@ -9,6 +9,9 @@ APP_GROUP="${APP_GROUP:-$(id -gn "${APP_USER}" 2>/dev/null || true)}"
 PROJECT_DIR="${INSTALL_DIR}/rpi3-waveshare-book-clock"
 VENV_DIR="${PROJECT_DIR}/.venv"
 WAVESHARE_DIR="${WAVESHARE_DIR:-/opt/waveshare-e-Paper}"
+BASKERVVILLE_FONT_URL="${BASKERVVILLE_FONT_URL:-https://raw.githubusercontent.com/google/fonts/main/ofl/baskervville/Baskervville%5Bwght%5D.ttf}"
+FONT_DIR="${FONT_DIR:-/usr/local/share/fonts/desk-clock}"
+BASKERVVILLE_FONT_PATH="${FONT_DIR}/Baskervville.ttf"
 CREATE_SERVICE="${CREATE_SERVICE:-1}"
 RUN_ON_INSTALL="${RUN_ON_INSTALL:-0}"
 
@@ -41,9 +44,9 @@ apt-get install -y \
   python3-rpi.gpio \
   python3-smbus \
   libopenjp2-7 \
-  fonts-gfs-baskerville \
   fonts-dejavu-core \
   fonts-liberation \
+  fontconfig \
   ca-certificates
 
 echo "Enabling SPI..."
@@ -72,6 +75,27 @@ else
   fi
   git clone --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
 fi
+
+echo "Installing Baskervville Google Font..."
+install -d -m 0755 "${FONT_DIR}"
+if [[ -f "${PROJECT_DIR}/assets/source/Baskervville.ttf" ]]; then
+  install -m 0644 "${PROJECT_DIR}/assets/source/Baskervville.ttf" "${BASKERVVILLE_FONT_PATH}"
+else
+  python3 - "${BASKERVVILLE_FONT_URL}" "${BASKERVVILLE_FONT_PATH}" <<'PY'
+from pathlib import Path
+import sys
+from urllib.request import urlopen
+
+url, path = sys.argv[1], Path(sys.argv[2])
+with urlopen(url, timeout=30) as response:
+    data = response.read()
+if len(data) < 1024:
+    raise SystemExit(f"Downloaded font from {url} was unexpectedly small")
+path.write_bytes(data)
+PY
+  chmod 0644 "${BASKERVVILLE_FONT_PATH}"
+fi
+fc-cache -f "${FONT_DIR}" || true
 
 echo "Creating Python virtual environment..."
 python3 -m venv --system-site-packages "${VENV_DIR}"

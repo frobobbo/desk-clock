@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATED = ROOT / "assets" / "generated"
 SOURCE = ROOT / "assets" / "source"
 BORDER_IMAGE = SOURCE / "literary-border.png"
+PROJECT_BASKERVVILLE_FONT = SOURCE / "Baskervville.ttf"
+BASKERVVILLE_FONT = Path("/usr/local/share/fonts/desk-clock/Baskervville.ttf")
 
 PANEL_WIDTH = 800
 PANEL_HEIGHT = 480
@@ -99,7 +101,8 @@ def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
 
 def font(size: int, bold: bool = False, italic: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
-        "/usr/share/fonts/truetype/baskerville/GFSBaskerville.otf",
+        str(PROJECT_BASKERVVILLE_FONT),
+        str(BASKERVVILLE_FONT),
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf" if bold and italic else "",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf" if italic else "",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",

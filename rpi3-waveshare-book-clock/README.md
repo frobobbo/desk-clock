@@ -114,7 +114,16 @@ Install dependencies:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y python3-pip python3-pil python3-numpy python3-spidev python3-rpi.gpio fonts-gfs-baskerville
+sudo apt-get install -y python3-pip python3-pil python3-numpy python3-spidev python3-rpi.gpio fontconfig
+sudo install -d -m 0755 /usr/local/share/fonts/desk-clock
+sudo python3 - <<'PY'
+from pathlib import Path
+from urllib.request import urlopen
+
+url = "https://raw.githubusercontent.com/google/fonts/main/ofl/baskervville/Baskervville%5Bwght%5D.ttf"
+Path("/usr/local/share/fonts/desk-clock/Baskervville.ttf").write_bytes(urlopen(url, timeout=30).read())
+PY
+sudo fc-cache -f /usr/local/share/fonts/desk-clock
 pip3 install waveshare-epaper
 ```
 
