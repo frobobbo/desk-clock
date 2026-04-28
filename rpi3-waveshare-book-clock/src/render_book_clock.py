@@ -16,6 +16,8 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = ROOT / "assets" / "generated"
+SOURCE = ROOT / "assets" / "source"
+BORDER_IMAGE = SOURCE / "literary-border.png"
 
 PANEL_WIDTH = 800
 PANEL_HEIGHT = 480
@@ -56,11 +58,12 @@ def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
     try:
         with urlopen(request, timeout=10) as response:
             payload = json.loads(response.read().decode("utf-8"))
+        quote = payload.get("quote") if isinstance(payload.get("quote"), dict) else {}
         return ClockData(
             now=now,
             greeting=greeting_for(now),
-            quote=str(payload.get("quote") or ClockData(now=now).quote),
-            author=str(payload.get("author") or ClockData(now=now).author),
+            quote=str(quote.get("text") or payload.get("quote") or ClockData(now=now).quote),
+            author=str(quote.get("author") or payload.get("author") or ClockData(now=now).author),
             literature_title=str(payload.get("literature_title") or ClockData(now=now).literature_title),
             literature_text=str(payload.get("literature_text") or ClockData(now=now).literature_text),
         )
@@ -70,11 +73,12 @@ def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
 
 def font(size: int, bold: bool = False, italic: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
-        "/usr/share/fonts/google-noto-vf/NotoSerif[wght].ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-BoldItalic.ttf" if bold and italic else "",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf" if italic else "",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf" if bold and italic else "",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf" if italic else "",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-BoldOblique.ttf" if bold and italic else "",
+        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Oblique.ttf" if italic else "",
+        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
     ]
     for path in candidates:
         if path and Path(path).exists():
@@ -90,6 +94,15 @@ def text_size(draw: ImageDraw.ImageDraw, text: str, typeface) -> tuple[int, int]
 def centered_text(draw: ImageDraw.ImageDraw, center_x: int, y: int, text: str, typeface, fill: int = INK) -> None:
     w, _ = text_size(draw, text, typeface)
     draw.text((center_x - w // 2, y), text, font=typeface, fill=fill)
+
+
+def page_background() -> Image.Image:
+    if BORDER_IMAGE.exists():
+        image = Image.open(BORDER_IMAGE).convert("L")
+        image = image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+        image = ImageEnhance.Contrast(image).enhance(1.2)
+        return image
+    return Image.new("L", (WIDTH, HEIGHT), PAPER)
 
 
 def wrapped_centered(
@@ -156,33 +169,24 @@ def corner_marks(draw: ImageDraw.ImageDraw) -> None:
 
 
 def draw_layout(data: ClockData) -> Image.Image:
-    image = Image.new("L", (WIDTH, HEIGHT), PAPER)
+    image = page_background()
 
     draw = ImageDraw.Draw(image)
-    title = font(28)
+    title = font(31, bold=True)
     date_font = font(20)
-    quote_font = font(32)
-    author_font = font(22)
-    small_caps = font(17)
-    body = font(21)
+    quote_font = font(35)
+    author_font = font(23)
+    small_caps = font(18, bold=True)
+    body = font(23)
 
-    draw.rounded_rectangle((12, 12, WIDTH - 12, HEIGHT - 12), radius=16, outline=INK, width=2)
-    draw.rounded_rectangle((18, 18, WIDTH - 18, HEIGHT - 18), radius=12, outline=210, width=1)
-    corner_marks(draw)
+    centered_text(draw, WIDTH // 2, 114, data.greeting or greeting_for(data.now), title)
+    centered_text(draw, WIDTH // 2, 150, data.now.strftime("%A, %B %-d, %Y"), date_font)
 
-    centered_text(draw, WIDTH // 2, 46, data.greeting or greeting_for(data.now), title)
-    ornament_rule(draw, 100, 105, 375)
-
-    centered_text(draw, WIDTH // 2, 132, data.now.strftime("%A, %B %-d, %Y"), date_font)
-    flourish(draw, WIDTH // 2, 174, 150)
-
-    y = wrapped_centered(draw, WIDTH // 2, 224, data.quote, quote_font, width=26, line_gap=44, max_lines=4)
+    y = wrapped_centered(draw, WIDTH // 2, 224, data.quote, quote_font, width=24, line_gap=48, max_lines=4)
     centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.author}", author_font)
-    flourish(draw, WIDTH // 2, 506, 190)
 
-    centered_text(draw, WIDTH // 2, 552, data.literature_title.upper(), small_caps)
-    wrapped_centered(draw, WIDTH // 2, 596, data.literature_text, body, width=34, line_gap=32, max_lines=5)
-    ornament_rule(draw, 744, 125, 355)
+    centered_text(draw, WIDTH // 2, 494, data.literature_title.upper(), small_caps)
+    wrapped_centered(draw, WIDTH // 2, 532, data.literature_text, body, width=30, line_gap=34, max_lines=4)
 
     image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=120, threshold=3))
     return image

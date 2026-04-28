@@ -7,38 +7,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 
-_CACHE: dict[str, dict[str, str]] = {}
-
-_LITERARY_QUOTES = [
-    {
-        "quote": "I declare after all there is no enjoyment like reading!",
-        "author": "Jane Austen",
-    },
-    {
-        "quote": "A room without books is like a body without a soul.",
-        "author": "Marcus Tullius Cicero",
-    },
-    {
-        "quote": "The books that the world calls immoral are books that show the world its own shame.",
-        "author": "Oscar Wilde",
-    },
-    {
-        "quote": "We read to know we are not alone.",
-        "author": "William Nicholson",
-    },
-    {
-        "quote": "There is no friend as loyal as a book.",
-        "author": "Ernest Hemingway",
-    },
-    {
-        "quote": "I have always imagined that Paradise will be a kind of library.",
-        "author": "Jorge Luis Borges",
-    },
-    {
-        "quote": "Words are, in my not-so-humble opinion, our most inexhaustible source of magic.",
-        "author": "J. K. Rowling",
-    },
-]
+_CACHE: dict[str, str] = {}
 
 _LITERARY_KEYWORDS = (
     "author",
@@ -76,25 +45,13 @@ _FALLBACK_LITERATURE_EVENTS = [
 ]
 
 
-def resolve_literary_display(now: datetime | None = None) -> dict[str, str]:
+def resolve_literature_event(now: datetime | None = None) -> str:
     now = now or datetime.now(timezone.utc)
     cache_key = now.strftime("%Y-%m-%d")
     cached = _CACHE.get(cache_key)
     if cached:
-        return dict(cached)
+        return cached
 
-    quote = _daily_pick(_LITERARY_QUOTES, now)
-    payload = {
-        "quote": quote["quote"],
-        "author": quote["author"],
-        "literature_title": "ON THIS DAY IN LITERATURE",
-        "literature_text": _resolve_literature_event(now),
-    }
-    _CACHE[cache_key] = dict(payload)
-    return payload
-
-
-def _resolve_literature_event(now: datetime) -> str:
     try:
         data = _get_json(
             "https://en.wikipedia.org/api/rest_v1/feed/onthisday/all/{:02d}/{:02d}".format(
@@ -103,7 +60,9 @@ def _resolve_literature_event(now: datetime) -> str:
             )
         )
     except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
-        return _daily_pick(_FALLBACK_LITERATURE_EVENTS, now)
+        fallback = _daily_pick(_FALLBACK_LITERATURE_EVENTS, now)
+        _CACHE[cache_key] = fallback
+        return fallback
 
     for section in ("events", "births", "deaths", "selected"):
         for item in data.get(section, []):
@@ -117,12 +76,16 @@ def _resolve_literature_event(now: datetime) -> str:
             if _looks_literary(haystack):
                 year = item.get("year")
                 prefix = f"In {year}, " if year else ""
-                return prefix + text[0].lower() + text[1:] if text else _daily_pick(_FALLBACK_LITERATURE_EVENTS, now)
+                event = prefix + text[0].lower() + text[1:] if text else _daily_pick(_FALLBACK_LITERATURE_EVENTS, now)
+                _CACHE[cache_key] = event
+                return event
 
-    return _daily_pick(_FALLBACK_LITERATURE_EVENTS, now)
+    fallback = _daily_pick(_FALLBACK_LITERATURE_EVENTS, now)
+    _CACHE[cache_key] = fallback
+    return fallback
 
 
-def _daily_pick(items: list[dict[str, str]] | list[str], now: datetime) -> Any:
+def _daily_pick(items: list[str], now: datetime) -> str:
     ordinal = int(now.strftime("%Y%m%d"))
     return items[ordinal % len(items)]
 
