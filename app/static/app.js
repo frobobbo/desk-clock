@@ -68,14 +68,22 @@ function render() {
   writeSection("lower", display.lower || defaultLowerSection());
   fields.notes.value = display.notes;
 
-  const isPiDisplay = activeDisplay === "waveshare-rpi3";
-  document.querySelector("#quoteSection").hidden = isPiDisplay;
-  document.querySelector("#weatherSection").hidden = isPiDisplay;
-  document.querySelector("#piSections").hidden = !isPiDisplay;
+  setSectionVisibility();
 
   document.querySelectorAll(".display-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.display === activeDisplay);
   });
+}
+
+function setSectionVisibility() {
+  const isElecrowDisplay = activeDisplay === "elecrow";
+  const isPiDisplay = activeDisplay === "waveshare-rpi3";
+
+  document.querySelector("#displaySection").hidden = isElecrowDisplay;
+  document.querySelector("#weatherSection").hidden = !isElecrowDisplay;
+  document.querySelector("#quoteSection").hidden = true;
+  document.querySelector("#piSections").hidden = !isPiDisplay;
+  document.querySelector("#notesSection").hidden = isElecrowDisplay;
 }
 
 function defaultUpperSection() {

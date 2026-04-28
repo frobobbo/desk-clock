@@ -41,6 +41,7 @@ apt-get install -y \
   python3-rpi.gpio \
   python3-smbus \
   libopenjp2-7 \
+  fonts-gfs-baskerville \
   fonts-dejavu-core \
   fonts-liberation \
   ca-certificates

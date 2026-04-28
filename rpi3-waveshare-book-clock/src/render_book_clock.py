@@ -58,12 +58,19 @@ def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
     url = f"{api_url}/api/displays/waveshare-rpi3/literary"
     request = Request(url, headers={"Accept": "application/json", "User-Agent": "desk-clock-rpi3/0.2.6"})
     try:
+        print(f"Config API GET {url}", flush=True)
         with urlopen(request, timeout=10) as response:
             payload = json.loads(response.read().decode("utf-8"))
         fallback = ClockData(now=now)
         upper = payload.get("upper") if isinstance(payload.get("upper"), dict) else {}
         lower = payload.get("lower") if isinstance(payload.get("lower"), dict) else {}
         quote = payload.get("quote") if isinstance(payload.get("quote"), dict) else {}
+        print(
+            "Config API loaded Pi content: "
+            f"upper_source={upper.get('source', quote.get('source', 'fallback'))} "
+            f"lower_source={lower.get('source', 'fallback')}",
+            flush=True,
+        )
         return ClockData(
             now=now,
             greeting=greeting_for(now),
@@ -74,12 +81,14 @@ def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
             lower_text=str(lower.get("text") or payload.get("literature_text") or fallback.lower_text),
             lower_author=str(lower.get("author") or fallback.lower_author),
         )
-    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
+    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+        print(f"Config API fetch failed, using fallback Pi content: {exc}", flush=True)
         return ClockData(now=now, greeting=greeting_for(now))
 
 
 def font(size: int, bold: bool = False, italic: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
+        "/usr/share/fonts/truetype/baskerville/GFSBaskerville.otf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf" if bold and italic else "",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf" if italic else "",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -182,16 +191,15 @@ def draw_layout(data: ClockData) -> Image.Image:
     title = font(31, bold=True)
     quote_font = font(35)
     author_font = font(23)
-    small_caps = font(18, bold=True)
     body = font(23)
 
-    centered_text(draw, WIDTH // 2, 114, data.greeting or greeting_for(data.now), title)
+    centered_text(draw, WIDTH // 2, 74, data.greeting or greeting_for(data.now), title)
 
-    centered_text(draw, WIDTH // 2, 198, data.upper_title.upper(), small_caps)
-    y = wrapped_centered(draw, WIDTH // 2, 232, data.upper_text, quote_font, width=24, line_gap=48, max_lines=4)
+    y = wrapped_centered(draw, WIDTH // 2, 198, data.upper_text, quote_font, width=24, line_gap=48, max_lines=4)
     if data.upper_author:
         centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.upper_author}", author_font)
 
+    small_caps = font(18, bold=True)
     centered_text(draw, WIDTH // 2, 494, data.lower_title.upper(), small_caps)
     y = wrapped_centered(draw, WIDTH // 2, 532, data.lower_text, body, width=30, line_gap=34, max_lines=4)
     if data.lower_author:
