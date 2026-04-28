@@ -26,6 +26,7 @@ PANEL_WIDTH = 800
 PANEL_HEIGHT = 480
 WIDTH = 480
 HEIGHT = 800
+SCALE = 2
 INK = 28
 MID = 122
 PAPER = 236
@@ -99,7 +100,12 @@ def fetch_clock_data(now: datetime, api_url: str | None = None) -> ClockData:
         return ClockData(now=now, greeting=greeting_for(now))
 
 
-def font(size: int, bold: bool = False, italic: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def font(
+    size: int,
+    bold: bool = False,
+    italic: bool = False,
+    weight: int = 520,
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
         str(PROJECT_BASKERVVILLE_FONT),
         str(BASKERVVILLE_FONT),
@@ -112,7 +118,10 @@ def font(size: int, bold: bool = False, italic: bool = False) -> ImageFont.FreeT
     ]
     for path in candidates:
         if path and Path(path).exists():
-            return ImageFont.truetype(path, size=size)
+            typeface = ImageFont.truetype(path, size=size)
+            if "Baskervville" in Path(path).name and hasattr(typeface, "set_variation_by_axes"):
+                typeface.set_variation_by_axes([700 if bold else weight])
+            return typeface
     return ImageFont.load_default()
 
 
@@ -199,6 +208,9 @@ def corner_marks(draw: ImageDraw.ImageDraw) -> None:
 
 
 def draw_layout(data: ClockData) -> Image.Image:
+    if SCALE > 1:
+        return draw_layout_scaled(data)
+
     image = page_background()
 
     draw = ImageDraw.Draw(image)
@@ -218,6 +230,48 @@ def draw_layout(data: ClockData) -> Image.Image:
         centered_text(draw, WIDTH // 2, min(y + 4, 680), data.lower_author, font(18, italic=True))
 
     image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=120, threshold=3))
+    return image
+
+
+def draw_layout_scaled(data: ClockData) -> Image.Image:
+    image = page_background().resize((WIDTH * SCALE, HEIGHT * SCALE), Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(image)
+
+    title = font(31 * SCALE, bold=True)
+    quote_font = font(35 * SCALE, weight=560)
+    author_font = font(23 * SCALE, weight=540)
+    body = font(23 * SCALE, weight=540)
+
+    centered_text(draw, WIDTH * SCALE // 2, 74 * SCALE, data.greeting or greeting_for(data.now), title)
+
+    y = wrapped_centered(
+        draw,
+        WIDTH * SCALE // 2,
+        198 * SCALE,
+        data.upper_text,
+        quote_font,
+        width=24,
+        line_gap=48 * SCALE,
+        max_lines=4,
+    )
+    if data.upper_author:
+        centered_text(draw, WIDTH * SCALE // 2, min(y + 8 * SCALE, 450 * SCALE), f"- {data.upper_author}", author_font)
+
+    y = wrapped_centered(
+        draw,
+        WIDTH * SCALE // 2,
+        494 * SCALE,
+        data.lower_text,
+        body,
+        width=30,
+        line_gap=34 * SCALE,
+        max_lines=5,
+    )
+    if data.lower_author:
+        centered_text(draw, WIDTH * SCALE // 2, min(y + 4 * SCALE, 680 * SCALE), data.lower_author, font(18 * SCALE, italic=True))
+
+    image = image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
+    image = image.filter(ImageFilter.UnsharpMask(radius=0.6, percent=80, threshold=4))
     return image
 
 
