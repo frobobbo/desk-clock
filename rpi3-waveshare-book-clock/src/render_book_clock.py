@@ -31,6 +31,11 @@ INK = 28
 MID = 122
 PAPER = 236
 DEFAULT_TIMEZONE = "America/New_York"
+LAYOUT_SECTIONS = {
+    "header": (52, 56, WIDTH - 52, 126),
+    "upper": (46, 170, WIDTH - 46, 470),
+    "lower": (46, 476, WIDTH - 46, 708),
+}
 
 
 @dataclass(frozen=True)
@@ -207,6 +212,11 @@ def corner_marks(draw: ImageDraw.ImageDraw) -> None:
         draw.arc((x - 8 if sx < 0 else x, y - 8 if sy < 0 else y, x + 16 if sx > 0 else x + 8, y + 16 if sy > 0 else y + 8), 0, 360, fill=INK)
 
 
+def draw_layout_borders(draw: ImageDraw.ImageDraw, scale: int = 1) -> None:
+    for x0, y0, x1, y1 in LAYOUT_SECTIONS.values():
+        draw.rectangle((x0 * scale, y0 * scale, x1 * scale, y1 * scale), outline=INK, width=max(1, scale))
+
+
 def draw_layout(data: ClockData) -> Image.Image:
     if SCALE > 1:
         return draw_layout_scaled(data)
@@ -228,6 +238,8 @@ def draw_layout(data: ClockData) -> Image.Image:
     y = wrapped_centered(draw, WIDTH // 2, 494, data.lower_text, body, width=30, line_gap=34, max_lines=5)
     if data.lower_author:
         centered_text(draw, WIDTH // 2, min(y + 4, 680), data.lower_author, font(18, italic=True))
+
+    draw_layout_borders(draw)
 
     image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=120, threshold=3))
     return image
@@ -269,6 +281,8 @@ def draw_layout_scaled(data: ClockData) -> Image.Image:
     )
     if data.lower_author:
         centered_text(draw, WIDTH * SCALE // 2, min(y + 4 * SCALE, 680 * SCALE), data.lower_author, font(18 * SCALE, italic=True))
+
+    draw_layout_borders(draw, SCALE)
 
     image = image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
     image = image.filter(ImageFilter.UnsharpMask(radius=0.6, percent=80, threshold=4))
