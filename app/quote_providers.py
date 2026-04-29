@@ -298,7 +298,7 @@ def _extract_litquotes_daily_line(html: str) -> str:
         raise ValueError("LitQuotes daily quote marker not found")
 
     tail = html[marker.end() :]
-    end = re.search(r"<(?:br|hr|div|p|h[1-6])\b|\n\s*\n", tail, flags=re.IGNORECASE)
+    end = re.search(r"<(?:center|hr)\b|<img\b|Share This Page", tail, flags=re.IGNORECASE)
     raw = tail[: end.start()] if end else tail
     line = _html_to_text(raw)
     if not line:
