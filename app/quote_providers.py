@@ -7,7 +7,7 @@ from copy import deepcopy
 from html import unescape
 from typing import Any
 from urllib.error import URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote as url_quote, urlencode
 from urllib.request import Request, urlopen
 
 from .config_store import DisplayConfig, QuoteConfig, SettingsConfig
@@ -314,7 +314,7 @@ def _parse_litquotes_line(line: str) -> tuple[str, str, str]:
 
 
 def _fetch_bible_reference(reference: str, title: str, source: str, fallback: QuoteConfig) -> QuoteConfig:
-    endpoint = f"https://bible-api.com/{quote(reference)}?translation=kjv"
+    endpoint = f"https://bible-api.com/{url_quote(reference)}?translation=kjv"
     data = _get_json(endpoint)
     text = _clean_bible_text(data["text"])
     quote = QuoteConfig(
