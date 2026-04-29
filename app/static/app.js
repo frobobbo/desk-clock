@@ -119,8 +119,8 @@ function readForm() {
   const current = config.displays[activeDisplay] || {};
   const isPiDisplay = activeDisplay === "waveshare-rpi3";
   const quote = current.quote || defaultUpperSection();
-  const upper = isPiDisplay ? readSection("upper") : current.upper || defaultUpperSection();
-  const lower = isPiDisplay ? readSection("lower") : current.lower || defaultLowerSection();
+  const upper = isPiDisplay ? readSection("upper") : stripDebug(current.upper || defaultUpperSection());
+  const lower = isPiDisplay ? readSection("lower") : stripDebug(current.lower || defaultLowerSection());
 
   return {
     enabled: fields.enabled.checked,
@@ -135,11 +135,16 @@ function readForm() {
       enabled: fields.weatherEnabled.checked,
       location_label: fields.weatherLocation.value.trim(),
     },
-    quote,
+    quote: stripDebug(quote),
     upper,
     lower,
     notes: fields.notes.value.trim(),
   };
+}
+
+function stripDebug(section) {
+  const { debug, ...clean } = section;
+  return clean;
 }
 
 function readSettings() {

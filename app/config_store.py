@@ -39,6 +39,7 @@ class QuoteConfig(BaseModel):
     title: str = "Daily Quote"
     text: str = "A room without books is like a body without a soul."
     author: str = "Marcus Tullius Cicero"
+    debug: dict[str, Any] = Field(default_factory=dict)
 
 
 class SectionConfig(QuoteConfig):

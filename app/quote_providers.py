@@ -18,6 +18,7 @@ from .weather_providers import resolve_weather
 
 _CACHE: dict[tuple[str, str, str, str], QuoteConfig] = {}
 ESV_API_URL = "https://api.esv.org/v3/passage/text/"
+RANDOM_PSALM_URL = "https://bible-api.com/data/web/random/PSA"
 LITQUOTES_DAILY_URL = "https://www.litquotes.com/DailyQuote.php"
 
 _BIBLE_VERSES = [
@@ -198,8 +199,15 @@ def resolve_quote(quote: QuoteConfig, settings: SettingsConfig | None = None) ->
 
     try:
         quote_config = _fetch_quote(quote.source, quote, settings)
-    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
-        quote_config = quote
+    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+        quote_config = quote.model_copy(deep=True)
+        _set_debug(
+            quote_config,
+            provider=quote.source,
+            endpoint="configured value",
+            fallback_used=True,
+            fallback_reason=_debug_error(exc),
+        )
 
     _CACHE[cache_key] = quote_config.model_copy(deep=True)
     return quote_config
@@ -217,55 +225,70 @@ def _fetch_quote(source: str, fallback: QuoteConfig, settings: SettingsConfig | 
     if source == "today_in_history":
         return _fetch_today_in_history(fallback)
     if source == "on_this_day_literature":
-        return QuoteConfig(
+        quote = QuoteConfig(
             enabled=fallback.enabled,
             source="on_this_day_literature",
             title=fallback.title or "On This Day in Literature",
             text=resolve_literature_event(),
             author=fallback.author,
         )
+        _set_debug(quote, provider="on_this_day_literature", endpoint="wikipedia on-this-day feed")
+        return quote
     return fallback
 
 
 def _fetch_zenquotes_today(fallback: QuoteConfig) -> QuoteConfig:
     data = _get_json("https://zenquotes.io/api/today")
     item = data[0]
-    return QuoteConfig(
+    quote = QuoteConfig(
         enabled=fallback.enabled,
         source="daily_author_quote",
         title=fallback.title or "Daily Quote",
         text=_clean_text(item["q"]),
         author=_clean_text(item["a"]),
     )
+    _set_debug(quote, provider="zenquotes", endpoint="https://zenquotes.io/api/today")
+    return quote
 
 
 def _fetch_literature_quote(fallback: QuoteConfig) -> QuoteConfig:
     try:
         return _fetch_litquotes_daily(fallback)
-    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
-        pass
+    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+        fallback_error = exc
 
     item = _daily_pick(_LITERATURE_QUOTES)
-    return QuoteConfig(
+    quote = QuoteConfig(
         enabled=fallback.enabled,
         source="quotes_from_literature",
         title=fallback.title or "Quotes from Literature",
         text=_clean_text(item["text"]),
         author=_clean_text(item["author"]),
     )
+    _set_debug(
+        quote,
+        provider="local_literature_quotes",
+        endpoint="local fallback list",
+        fallback_used=True,
+        fallback_reason=_debug_error(fallback_error),
+        attempted_endpoint=LITQUOTES_DAILY_URL,
+    )
+    return quote
 
 
 def _fetch_litquotes_daily(fallback: QuoteConfig) -> QuoteConfig:
     html = _get_text(LITQUOTES_DAILY_URL)
     line = _extract_litquotes_daily_line(html)
     text, title, author = _parse_litquotes_line(line)
-    return QuoteConfig(
+    quote = QuoteConfig(
         enabled=fallback.enabled,
         source="quotes_from_literature",
         title=fallback.title or "Quotes from Literature",
         text=_clean_text(text),
         author=_clean_text(f"{author}, {title}" if title else author),
     )
+    _set_debug(quote, provider="litquotes", endpoint=LITQUOTES_DAILY_URL)
+    return quote
 
 
 def _extract_litquotes_daily_line(html: str) -> str:
@@ -290,26 +313,64 @@ def _parse_litquotes_line(line: str) -> tuple[str, str, str]:
 
 
 def _fetch_bible_reference(reference: str, title: str, source: str, fallback: QuoteConfig) -> QuoteConfig:
-    data = _get_json(f"https://bible-api.com/{quote(reference)}?translation=kjv")
+    endpoint = f"https://bible-api.com/{quote(reference)}?translation=kjv"
+    data = _get_json(endpoint)
     text = _clean_bible_text(data["text"])
-    return QuoteConfig(
+    quote = QuoteConfig(
         enabled=fallback.enabled,
         source=source,
         title=fallback.title or title,
         text=text,
         author=_clean_text(data["reference"]),
     )
+    _set_debug(quote, provider="bible-api", endpoint=endpoint)
+    return quote
 
 
 def _fetch_daily_psalm(fallback: QuoteConfig, settings: SettingsConfig | None = None) -> QuoteConfig:
-    reference = _daily_pick(_PSALM_READINGS)
     esv_api_key = _esv_api_key(settings)
+    fallback_error: BaseException | None = None
     if esv_api_key:
         try:
+            reference = _fetch_random_psalm_reference()
             return _fetch_esv_reference(reference, "Daily Psalm", "daily_psalm", fallback, esv_api_key)
-        except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
-            pass
-    return _fetch_bible_reference(reference, "Daily Psalm", "daily_psalm", fallback)
+        except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+            fallback_error = exc
+
+    reference = _daily_pick(_PSALM_READINGS)
+    quote = _fetch_bible_reference(reference, "Daily Psalm", "daily_psalm", fallback)
+    if fallback_error:
+        quote.debug.update(
+            {
+                "fallback_used": True,
+                "fallback_reason": _debug_error(fallback_error),
+                "attempted_endpoint": f"{RANDOM_PSALM_URL} -> {ESV_API_URL}",
+            }
+        )
+    elif not esv_api_key:
+        quote.debug.update(
+            {
+                "fallback_used": True,
+                "fallback_reason": "ESV API key not configured",
+                "attempted_endpoint": ESV_API_URL,
+            }
+        )
+    return quote
+
+
+def _fetch_random_psalm_reference() -> str:
+    data = _get_json(RANDOM_PSALM_URL)
+    verse = data.get("random_verse") or data.get("verse") or data
+    book = str(verse.get("book") or verse.get("book_name") or "Psalm")
+    chapter = int(verse["chapter"])
+    verse_number = int(verse["verse"])
+    if verse.get("book_id") and str(verse["book_id"]).upper() != "PSA":
+        raise ValueError("random verse was not from Psalms")
+    return f"{_normalize_psalm_book_name(book)} {chapter}:{verse_number}"
+
+
+def _normalize_psalm_book_name(book: str) -> str:
+    return "Psalm" if book.strip().lower() in {"psalm", "psalms", "psa"} else book.strip()
 
 
 def _esv_api_key(settings: SettingsConfig | None = None) -> str:
@@ -337,19 +398,22 @@ def _fetch_esv_reference(reference: str, title: str, source: str, fallback: Quot
             "line-length": "0",
         }
     )
+    endpoint = f"{ESV_API_URL}?{params}"
     data = _get_json(
-        f"{ESV_API_URL}?{params}",
+        endpoint,
         headers={"Authorization": f"Token {api_key}"},
     )
     passages = data.get("passages") or []
     text = _clean_bible_text(passages[0])
-    return QuoteConfig(
+    quote = QuoteConfig(
         enabled=fallback.enabled,
         source=source,
         title=fallback.title or title,
         text=text,
         author=_clean_text(data.get("canonical") or reference),
     )
+    _set_debug(quote, provider="esv", endpoint=_redact_query(endpoint), reference=reference)
+    return quote
 
 
 def _fetch_today_in_history(fallback: QuoteConfig) -> QuoteConfig:
@@ -362,13 +426,15 @@ def _fetch_today_in_history(fallback: QuoteConfig) -> QuoteConfig:
     event = _daily_pick(data["events"])
     year = event.get("year")
     text = _clean_text(event["text"])
-    return QuoteConfig(
+    quote = QuoteConfig(
         enabled=fallback.enabled,
         source="today_in_history",
         title=fallback.title or "Today in History",
         text=text,
         author=str(year) if year else "On this day",
     )
+    _set_debug(quote, provider="wikipedia", endpoint=url)
+    return quote
 
 
 def _get_json(url: str, headers: dict[str, str] | None = None) -> Any:
@@ -408,6 +474,36 @@ def _today_key() -> str:
 
 def _clean_bible_text(text: str) -> str:
     return _clean_text(" ".join(line.strip() for line in text.splitlines() if line.strip()))
+
+
+def _set_debug(
+    quote: QuoteConfig,
+    *,
+    provider: str,
+    endpoint: str,
+    fallback_used: bool = False,
+    fallback_reason: str = "",
+    attempted_endpoint: str = "",
+    reference: str = "",
+) -> None:
+    quote.debug = {
+        "provider": provider,
+        "endpoint": endpoint,
+        "fallback_used": fallback_used,
+        "fallback_reason": fallback_reason,
+    }
+    if attempted_endpoint:
+        quote.debug["attempted_endpoint"] = attempted_endpoint
+    if reference:
+        quote.debug["reference"] = reference
+
+
+def _debug_error(exc: BaseException) -> str:
+    return f"{type(exc).__name__}: {exc}"
+
+
+def _redact_query(url: str) -> str:
+    return url.split("?", 1)[0]
 
 
 def _html_to_text(html: str) -> str:
