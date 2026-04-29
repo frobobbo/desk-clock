@@ -67,7 +67,7 @@ The Elecrow payload has two configurable content sections: `weather` and `quote`
 | Source | Meaning |
 |---|---|
 | `daily_author_quote` | Quote of the day from ZenQuotes |
-| `quotes_from_literature` | Daily selected quote from literature |
+| `quotes_from_literature` | Daily quote from LitQuotes, with local literature quote fallback |
 | `daily_bible_verse` | Daily selected passage from bible-api.com |
 | `daily_psalm` | Daily selected Psalm passage from bible-api.com |
 | `today_in_history` | Historical event from Wikipedia's public on-this-day feed |

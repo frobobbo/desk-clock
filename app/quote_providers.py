@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from copy import deepcopy
+from html import unescape
 from typing import Any
 from urllib.error import URLError
 from urllib.parse import quote, urlencode
@@ -16,6 +18,7 @@ from .weather_providers import resolve_weather
 
 _CACHE: dict[tuple[str, str, str, str], QuoteConfig] = {}
 ESV_API_URL = "https://api.esv.org/v3/passage/text/"
+LITQUOTES_DAILY_URL = "https://www.litquotes.com/DailyQuote.php"
 
 _BIBLE_VERSES = [
     "John 3:16",
@@ -63,8 +66,112 @@ _LITERATURE_QUOTES = [
         "author": "Charlotte Bronte, Jane Eyre",
     },
     {
-        "text": "And now that you don't have to be perfect, you can be good.",
-        "author": "John Steinbeck, East of Eden",
+        "text": "It was the best of times, it was the worst of times.",
+        "author": "Charles Dickens, A Tale of Two Cities",
+    },
+    {
+        "text": "Beware; for I am fearless, and therefore powerful.",
+        "author": "Mary Shelley, Frankenstein",
+    },
+    {
+        "text": "There is nothing in the world so irresistibly contagious as laughter and good humor.",
+        "author": "Charles Dickens, A Christmas Carol",
+    },
+    {
+        "text": "All the world's a stage.",
+        "author": "William Shakespeare, As You Like It",
+    },
+    {
+        "text": "Tomorrow is always fresh, with no mistakes in it yet.",
+        "author": "L. M. Montgomery, Anne of Green Gables",
+    },
+    {
+        "text": "I would always rather be happy than dignified.",
+        "author": "Charlotte Bronte, Jane Eyre",
+    },
+    {
+        "text": "There are darknesses in life and there are lights.",
+        "author": "Bram Stoker, Dracula",
+    },
+    {
+        "text": "Nothing is so painful to the human mind as a great and sudden change.",
+        "author": "Mary Shelley, Frankenstein",
+    },
+    {
+        "text": "I cannot fix on the hour, or the spot, or the look or the words, which laid the foundation.",
+        "author": "Jane Austen, Pride and Prejudice",
+    },
+    {
+        "text": "The moment you doubt whether you can fly, you cease for ever to be able to do it.",
+        "author": "J. M. Barrie, Peter Pan",
+    },
+    {
+        "text": "I am not afraid of storms, for I am learning how to sail my ship.",
+        "author": "Louisa May Alcott, Little Women",
+    },
+    {
+        "text": "No one who had ever seen Catherine Morland in her infancy would have supposed her born to be an heroine.",
+        "author": "Jane Austen, Northanger Abbey",
+    },
+    {
+        "text": "A loving heart is the truest wisdom.",
+        "author": "Charles Dickens, David Copperfield",
+    },
+    {
+        "text": "The course of true love never did run smooth.",
+        "author": "William Shakespeare, A Midsummer Night's Dream",
+    },
+    {
+        "text": "The pain of parting is nothing to the joy of meeting again.",
+        "author": "Charles Dickens, Nicholas Nickleby",
+    },
+    {
+        "text": "There was a star danced, and under that was I born.",
+        "author": "William Shakespeare, Much Ado About Nothing",
+    },
+    {
+        "text": "My love's more richer than my tongue.",
+        "author": "William Shakespeare, King Lear",
+    },
+    {
+        "text": "The wide world is all before us.",
+        "author": "William Shakespeare, Romeo and Juliet",
+    },
+    {
+        "text": "I like good strong words that mean something.",
+        "author": "Louisa May Alcott, Little Women",
+    },
+    {
+        "text": "A dream itself is but a shadow.",
+        "author": "William Shakespeare, Hamlet",
+    },
+    {
+        "text": "The heart was made to be broken.",
+        "author": "Oscar Wilde, De Profundis",
+    },
+    {
+        "text": "A little sincerity is a dangerous thing, and a great deal of it is absolutely fatal.",
+        "author": "Oscar Wilde, The Critic as Artist",
+    },
+    {
+        "text": "The truth is rarely pure and never simple.",
+        "author": "Oscar Wilde, The Importance of Being Earnest",
+    },
+    {
+        "text": "It is a far, far better thing that I do, than I have ever done.",
+        "author": "Charles Dickens, A Tale of Two Cities",
+    },
+    {
+        "text": "Every atom of your flesh is as dear to me as my own.",
+        "author": "Charlotte Bronte, Jane Eyre",
+    },
+    {
+        "text": "To thine own self be true.",
+        "author": "William Shakespeare, Hamlet",
+    },
+    {
+        "text": "Love looks not with the eyes, but with the mind.",
+        "author": "William Shakespeare, A Midsummer Night's Dream",
     },
 ]
 
@@ -133,6 +240,11 @@ def _fetch_zenquotes_today(fallback: QuoteConfig) -> QuoteConfig:
 
 
 def _fetch_literature_quote(fallback: QuoteConfig) -> QuoteConfig:
+    try:
+        return _fetch_litquotes_daily(fallback)
+    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError):
+        pass
+
     item = _daily_pick(_LITERATURE_QUOTES)
     return QuoteConfig(
         enabled=fallback.enabled,
@@ -141,6 +253,40 @@ def _fetch_literature_quote(fallback: QuoteConfig) -> QuoteConfig:
         text=_clean_text(item["text"]),
         author=_clean_text(item["author"]),
     )
+
+
+def _fetch_litquotes_daily(fallback: QuoteConfig) -> QuoteConfig:
+    html = _get_text(LITQUOTES_DAILY_URL)
+    line = _extract_litquotes_daily_line(html)
+    text, title, author = _parse_litquotes_line(line)
+    return QuoteConfig(
+        enabled=fallback.enabled,
+        source="quotes_from_literature",
+        title=fallback.title or "Quotes from Literature",
+        text=_clean_text(text),
+        author=_clean_text(f"{author}, {title}" if title else author),
+    )
+
+
+def _extract_litquotes_daily_line(html: str) -> str:
+    marker = re.search(r"The Daily Quote for .*? is:", html, flags=re.IGNORECASE | re.DOTALL)
+    if not marker:
+        raise ValueError("LitQuotes daily quote marker not found")
+
+    tail = html[marker.end() :]
+    end = re.search(r"<(?:br|hr|div|p|h[1-6])\b|\n\s*\n", tail, flags=re.IGNORECASE)
+    raw = tail[: end.start()] if end else tail
+    line = _html_to_text(raw)
+    if not line:
+        raise ValueError("LitQuotes daily quote line not found")
+    return line
+
+
+def _parse_litquotes_line(line: str) -> tuple[str, str, str]:
+    match = re.match(r"(.+?)\s*~\s*(.+?)\s+by\s+(.+)$", line)
+    if not match:
+        raise ValueError("LitQuotes daily quote format not recognized")
+    return match.group(1), match.group(2), match.group(3)
 
 
 def _fetch_bible_reference(reference: str, title: str, source: str, fallback: QuoteConfig) -> QuoteConfig:
@@ -239,6 +385,17 @@ def _get_json(url: str, headers: dict[str, str] | None = None) -> Any:
         return json.loads(response.read().decode("utf-8"))
 
 
+def _get_text(url: str, headers: dict[str, str] | None = None) -> str:
+    request_headers = {
+        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "desk-clock-config/0.2.6 (https://github.com/frobobbo/desk-clock)",
+    }
+    request_headers.update(headers or {})
+    request = Request(url, headers=request_headers)
+    with urlopen(request, timeout=8) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
 def _daily_pick(items: list[Any]) -> Any:
     if not items:
         raise ValueError("no provider items returned")
@@ -253,5 +410,10 @@ def _clean_bible_text(text: str) -> str:
     return _clean_text(" ".join(line.strip() for line in text.splitlines() if line.strip()))
 
 
+def _html_to_text(html: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", html)
+    return _clean_text(unescape(text.replace("\xa0", " ")))
+
+
 def _clean_text(text: str) -> str:
-    return " ".join(str(text).replace("\u201c", '"').replace("\u201d", '"').split())
+    return " ".join(str(text).replace("\u201c", '"').replace("\u201d", '"').replace("\u2019", "'").split())
