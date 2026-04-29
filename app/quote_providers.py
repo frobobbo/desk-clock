@@ -20,6 +20,7 @@ _CACHE: dict[tuple[str, str, str, str], QuoteConfig] = {}
 ESV_API_URL = "https://api.esv.org/v3/passage/text/"
 RANDOM_PSALM_URL = "https://bible-api.com/data/web/random/PSA"
 LITQUOTES_DAILY_URL = "https://www.litquotes.com/DailyQuote.php"
+PROVIDER_ERRORS = (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError, IndexError, AttributeError)
 
 _BIBLE_VERSES = [
     "John 3:16",
@@ -199,7 +200,7 @@ def resolve_quote(quote: QuoteConfig, settings: SettingsConfig | None = None) ->
 
     try:
         quote_config = _fetch_quote(quote.source, quote, settings)
-    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+    except PROVIDER_ERRORS as exc:
         quote_config = quote.model_copy(deep=True)
         _set_debug(
             quote_config,
@@ -254,7 +255,7 @@ def _fetch_zenquotes_today(fallback: QuoteConfig) -> QuoteConfig:
 def _fetch_literature_quote(fallback: QuoteConfig) -> QuoteConfig:
     try:
         return _fetch_litquotes_daily(fallback)
-    except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+    except PROVIDER_ERRORS as exc:
         fallback_error = exc
 
     item = _daily_pick(_LITERATURE_QUOTES)
@@ -334,7 +335,7 @@ def _fetch_daily_psalm(fallback: QuoteConfig, settings: SettingsConfig | None = 
         try:
             reference = _fetch_random_psalm_reference()
             return _fetch_esv_reference(reference, "Daily Psalm", "daily_psalm", fallback, esv_api_key)
-        except (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError) as exc:
+        except PROVIDER_ERRORS as exc:
             fallback_error = exc
 
     reference = _daily_pick(_PSALM_READINGS)
@@ -360,7 +361,11 @@ def _fetch_daily_psalm(fallback: QuoteConfig, settings: SettingsConfig | None = 
 
 def _fetch_random_psalm_reference() -> str:
     data = _get_json(RANDOM_PSALM_URL)
+    if not isinstance(data, dict):
+        raise ValueError("random Psalm response was not an object")
     verse = data.get("random_verse") or data.get("verse") or data
+    if not isinstance(verse, dict):
+        raise ValueError("random Psalm verse was not an object")
     book = str(verse.get("book") or verse.get("book_name") or "Psalm")
     chapter = int(verse["chapter"])
     verse_number = int(verse["verse"])
@@ -404,6 +409,8 @@ def _fetch_esv_reference(reference: str, title: str, source: str, fallback: Quot
         headers={"Authorization": f"Token {api_key}"},
     )
     passages = data.get("passages") or []
+    if not passages:
+        raise ValueError(f"ESV returned no passages for {reference}")
     text = _clean_bible_text(passages[0])
     quote = QuoteConfig(
         enabled=fallback.enabled,

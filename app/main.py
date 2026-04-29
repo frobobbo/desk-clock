@@ -60,9 +60,26 @@ def get_display(display_id: str) -> DisplayConfig:
 def get_waveshare_literary() -> dict[str, object]:
     config = store.read()
     try:
-        display = resolve_display_content(config.displays["waveshare-rpi3"], config.settings)
+        source_display = config.displays["waveshare-rpi3"]
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="display not found") from exc
+    try:
+        display = resolve_display_content(source_display, config.settings)
+    except Exception as exc:
+        display = source_display.model_copy(deep=True)
+        display.notes = "content resolution failed; returned configured values"
+        display.upper.debug = {
+            "provider": display.upper.source,
+            "endpoint": "configured value",
+            "fallback_used": True,
+            "fallback_reason": f"{type(exc).__name__}: {exc}",
+        }
+        display.lower.debug = {
+            "provider": display.lower.source,
+            "endpoint": "configured value",
+            "fallback_used": True,
+            "fallback_reason": f"{type(exc).__name__}: {exc}",
+        }
 
     payload = display.model_dump(mode="json")
     payload["literature_title"] = display.lower.title
