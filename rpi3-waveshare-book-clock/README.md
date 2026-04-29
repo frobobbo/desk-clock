@@ -38,12 +38,15 @@ The installer will:
 - install a `desk-clock-rpi.service` systemd unit
 - install a `desk-clock-rpi.timer` that refreshes the display hourly
 - render a local preview to verify Python dependencies
+- enable Raspberry Pi OverlayFS protection for the root filesystem
 
 If SPI was not already enabled, reboot after install:
 
 ```bash
 sudo reboot
 ```
+
+The installer enables Raspberry Pi OverlayFS protection by default. This reduces SD card writes, but it also means updates written to `/opt/desk-clock` are not persistent after a reboot while OverlayFS is active. Use the manual updater below when you want to pull new repository changes.
 
 Then verify SPI:
 
@@ -69,6 +72,14 @@ Check the hourly refresh timer:
 systemctl status desk-clock-rpi.timer
 ```
 
+Run a manual software update:
+
+```bash
+sudo /opt/desk-clock/rpi3-waveshare-book-clock/tools/manual-update-pi.sh
+```
+
+If OverlayFS is active, the script disables it and reboots. After the Pi comes back, run the same command again to pull git changes, refresh Python dependencies, re-enable OverlayFS, and prompt for the final reboot.
+
 Installer options can be passed as environment variables:
 
 ```bash
@@ -85,6 +96,7 @@ Useful options:
 | `INSTALL_DIR` | `/opt/desk-clock` | Clone location |
 | `APP_USER` | invoking sudo user | User that runs the display service |
 | `CREATE_SERVICE` | `1` | Set to `0` to skip systemd unit/timer creation |
+| `ENABLE_OVERLAYFS` | `1` | Set to `0` to skip Raspberry Pi OverlayFS protection |
 | `RUN_ON_INSTALL` | `0` | Set to `1` to refresh the e-ink display immediately |
 
 ### Manual Install

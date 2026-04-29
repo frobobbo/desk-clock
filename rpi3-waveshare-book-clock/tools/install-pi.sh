@@ -14,6 +14,7 @@ FONT_DIR="${FONT_DIR:-/usr/local/share/fonts/desk-clock}"
 BASKERVVILLE_FONT_PATH="${FONT_DIR}/Baskervville.ttf"
 CREATE_SERVICE="${CREATE_SERVICE:-1}"
 RUN_ON_INSTALL="${RUN_ON_INSTALL:-0}"
+ENABLE_OVERLAYFS="${ENABLE_OVERLAYFS:-1}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "This installer must run as root. Use: curl -fsSL <url> | sudo bash" >&2
@@ -181,6 +182,15 @@ if [[ "${RUN_ON_INSTALL}" == "1" ]]; then
   systemctl start desk-clock-rpi.service
 fi
 
+if [[ "${ENABLE_OVERLAYFS}" == "1" ]]; then
+  echo "Enabling Raspberry Pi OverlayFS protection..."
+  if command -v raspi-config >/dev/null 2>&1; then
+    raspi-config nonint do_overlayfs 0 || raspi-config nonint enable_overlayfs || true
+  else
+    echo "raspi-config not found; skipping OverlayFS setup." >&2
+  fi
+fi
+
 echo
 echo "Install complete."
 echo
@@ -190,3 +200,5 @@ echo "  2. Verify SPI after reboot: ls -l /dev/spidev*"
 echo "  3. Render to the display once: sudo systemctl start desk-clock-rpi.service"
 echo "  4. Watch logs: journalctl -u desk-clock-rpi.service -n 100 --no-pager"
 echo "  5. Timer status: systemctl status desk-clock-rpi.timer"
+echo "  6. Manual software update: sudo ${PROJECT_DIR}/tools/manual-update-pi.sh"
+echo "  7. Reboot to apply OverlayFS protection if it was enabled: sudo reboot"
