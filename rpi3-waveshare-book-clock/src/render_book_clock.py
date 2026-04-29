@@ -336,7 +336,7 @@ def draw_layout_scaled(data: ClockData) -> Image.Image:
 
 def render(data: ClockData) -> tuple[Image.Image, Image.Image]:
     portrait = draw_layout(data)
-    panel = portrait.rotate(90, expand=True)
+    panel = portrait.rotate(270, expand=True)
     if panel.size != (PANEL_WIDTH, PANEL_HEIGHT):
         panel = panel.resize((PANEL_WIDTH, PANEL_HEIGHT), Image.Resampling.LANCZOS)
     black = panel.point(lambda p: 0 if p < 190 else 255, "1")
