@@ -1,4 +1,5 @@
 const fields = {
+  esvApiKey: document.querySelector("#esvApiKey"),
   enabled: document.querySelector("#enabled"),
   headline: document.querySelector("#headline"),
   subtitle: document.querySelector("#subtitle"),
@@ -57,6 +58,7 @@ function render() {
   writeSection("upper", display.upper || defaultUpperSection());
   writeSection("lower", display.lower || defaultLowerSection());
   fields.notes.value = display.notes;
+  fields.esvApiKey.value = config.settings?.esv_api_key || "";
 
   setSectionVisibility();
 
@@ -140,12 +142,21 @@ function readForm() {
   };
 }
 
+function readSettings() {
+  return {
+    ...(config.settings || {}),
+    esv_api_key: fields.esvApiKey.value.trim(),
+  };
+}
+
 async function saveConfig() {
   config.displays[activeDisplay] = readForm();
-  const response = await fetch(`/api/displays/${encodeURIComponent(activeDisplay)}`, {
+  config.settings = readSettings();
+
+  const response = await fetch("/api/config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config.displays[activeDisplay]),
+    body: JSON.stringify(config),
   });
   if (!response.ok) {
     const error = await response.text();
@@ -207,6 +218,7 @@ fields.lowerSource.addEventListener("change", () => {
 document.querySelectorAll(".display-tab").forEach((button) => {
   button.addEventListener("click", () => {
     config.displays[activeDisplay] = readForm();
+    config.settings = readSettings();
     activeDisplay = button.dataset.display;
     render();
   });

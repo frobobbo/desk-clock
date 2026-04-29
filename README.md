@@ -73,6 +73,8 @@ The Elecrow payload has two configurable content sections: `weather` and `quote`
 
 Configuration is stored as JSON at `/data/display-config.json` in the container. Override the path with `CONFIG_PATH` if needed.
 
+Enter an ESV API key in the web app Settings section to fetch the Daily Psalm from Crossway's ESV API. You can also provide `ESV_API_KEY` as an environment variable. If no key is configured or the ESV API request fails, Daily Psalm falls back to the existing Bible API provider.
+
 ## Container Builds
 
 GitHub Actions builds the API/web Docker image with `.github/workflows/api-web-image.yml`.

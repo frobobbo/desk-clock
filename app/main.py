@@ -51,7 +51,7 @@ def list_displays() -> dict[str, list[str]]:
 def get_display(display_id: str) -> DisplayConfig:
     config = store.read()
     try:
-        return resolve_display_content(config.displays[display_id])
+        return resolve_display_content(config.displays[display_id], config.settings)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="display not found") from exc
 
@@ -60,7 +60,7 @@ def get_display(display_id: str) -> DisplayConfig:
 def get_waveshare_literary() -> dict[str, object]:
     config = store.read()
     try:
-        display = resolve_display_content(config.displays["waveshare-rpi3"])
+        display = resolve_display_content(config.displays["waveshare-rpi3"], config.settings)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="display not found") from exc
 
@@ -77,4 +77,4 @@ def put_display(display_id: str, display: DisplayConfig) -> AppConfig:
 
 @app.post("/api/quote/resolve", response_model=QuoteConfig)
 def post_quote_resolve(quote: QuoteConfig) -> QuoteConfig:
-    return resolve_quote(quote)
+    return resolve_quote(quote, store.read().settings)

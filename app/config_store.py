@@ -44,6 +44,10 @@ class SectionConfig(QuoteConfig):
     pass
 
 
+class SettingsConfig(BaseModel):
+    esv_api_key: str = ""
+
+
 class DisplayConfig(BaseModel):
     enabled: bool = True
     headline: str = "The Daily Chronicle"
@@ -75,6 +79,7 @@ class DisplayConfig(BaseModel):
 
 class AppConfig(BaseModel):
     updated_at: str = ""
+    settings: SettingsConfig = Field(default_factory=SettingsConfig)
     displays: dict[str, DisplayConfig] = Field(
         default_factory=lambda: {
             "elecrow": DisplayConfig(
