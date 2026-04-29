@@ -34,10 +34,11 @@ DEFAULT_TIMEZONE = "America/New_York"
 QUARTER_INCH = 25
 HEADER_Y = 74 - QUARTER_INCH
 HEADER_TOP = 56 - QUARTER_INCH
-HEADER_BOTTOM = 126
+HEADER_BOTTOM = 100
 UPPER_TOP = HEADER_BOTTOM
-UPPER_TEXT_Y = 154
+UPPER_TEXT_Y = 128
 UPPER_FONT_SIZE = 33
+UPPER_MAX_LINES = 6
 LAYOUT_SECTIONS = {
     "header": (52, HEADER_TOP, WIDTH - 52, HEADER_BOTTOM),
     "upper": (46, UPPER_TOP, WIDTH - 46, 470),
@@ -238,7 +239,7 @@ def draw_layout(data: ClockData) -> Image.Image:
 
     centered_text(draw, WIDTH // 2, HEADER_Y, data.greeting or greeting_for(data.now), title)
 
-    y = wrapped_centered(draw, WIDTH // 2, UPPER_TEXT_Y, data.upper_text, quote_font, width=24, line_gap=48, max_lines=4)
+    y = wrapped_centered(draw, WIDTH // 2, UPPER_TEXT_Y, data.upper_text, quote_font, width=24, line_gap=48, max_lines=UPPER_MAX_LINES)
     if data.upper_author:
         centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.upper_author}", author_font)
 
@@ -271,7 +272,7 @@ def draw_layout_scaled(data: ClockData) -> Image.Image:
         quote_font,
         width=24,
         line_gap=48 * SCALE,
-        max_lines=4,
+        max_lines=UPPER_MAX_LINES,
     )
     if data.upper_author:
         centered_text(draw, WIDTH * SCALE // 2, min(y + 8 * SCALE, 450 * SCALE), f"- {data.upper_author}", author_font)
