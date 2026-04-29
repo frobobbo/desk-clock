@@ -33,17 +33,11 @@ PAPER = 236
 DEFAULT_TIMEZONE = "America/New_York"
 QUARTER_INCH = 25
 HEADER_Y = 74 - QUARTER_INCH
-HEADER_TOP = 56 - QUARTER_INCH
-HEADER_BOTTOM = 100
-UPPER_TOP = HEADER_BOTTOM
-UPPER_TEXT_Y = 128
+UPPER_SECTION_TOP = 100
+UPPER_SECTION_BOTTOM = 470
 UPPER_FONT_SIZE = 33
 UPPER_MAX_LINES = 6
-LAYOUT_SECTIONS = {
-    "header": (52, HEADER_TOP, WIDTH - 52, HEADER_BOTTOM),
-    "upper": (46, UPPER_TOP, WIDTH - 46, 470),
-    "lower": (46, 476, WIDTH - 46, 708),
-}
+UPPER_AUTHOR_GAP = 8
 
 
 @dataclass(frozen=True)
@@ -168,13 +162,52 @@ def wrapped_centered(
     fill: int = INK,
     max_lines: int | None = None,
 ) -> int:
-    lines = textwrap.wrap(text, width=width)
-    if max_lines:
-        lines = lines[:max_lines]
+    lines = wrapped_lines(text, width, max_lines)
     for line in lines:
         centered_text(draw, center_x, y, line, typeface, fill)
         y += line_gap
     return y
+
+
+def wrapped_lines(text: str, width: int, max_lines: int | None = None) -> list[str]:
+    lines = textwrap.wrap(text, width=width)
+    if max_lines:
+        lines = lines[:max_lines]
+    return lines
+
+
+def centered_wrapped_block(
+    draw: ImageDraw.ImageDraw,
+    center_x: int,
+    top: int,
+    bottom: int,
+    text: str,
+    typeface,
+    width: int,
+    line_gap: int,
+    fill: int = INK,
+    max_lines: int | None = None,
+    author: str = "",
+    author_typeface=None,
+    author_gap: int = 0,
+) -> None:
+    lines = wrapped_lines(text, width, max_lines)
+    if not lines:
+        return
+
+    line_height = max(text_size(draw, line, typeface)[1] for line in lines)
+    block_height = (len(lines) - 1) * line_gap + line_height
+    if author and author_typeface:
+        _, author_height = text_size(draw, author, author_typeface)
+        block_height += author_gap + author_height
+
+    y = top + max(0, (bottom - top - block_height) // 2)
+    for line in lines:
+        centered_text(draw, center_x, y, line, typeface, fill)
+        y += line_gap
+
+    if author and author_typeface:
+        centered_text(draw, center_x, y - line_gap + line_height + author_gap, author, author_typeface, fill)
 
 
 def ornament_rule(draw: ImageDraw.ImageDraw, y: int, x0: int = 270, x1: int = 530) -> None:
@@ -220,11 +253,6 @@ def corner_marks(draw: ImageDraw.ImageDraw) -> None:
         draw.arc((x - 8 if sx < 0 else x, y - 8 if sy < 0 else y, x + 16 if sx > 0 else x + 8, y + 16 if sy > 0 else y + 8), 0, 360, fill=INK)
 
 
-def draw_layout_borders(draw: ImageDraw.ImageDraw, scale: int = 1) -> None:
-    for x0, y0, x1, y1 in LAYOUT_SECTIONS.values():
-        draw.rectangle((x0 * scale, y0 * scale, x1 * scale, y1 * scale), outline=INK, width=max(1, scale))
-
-
 def draw_layout(data: ClockData) -> Image.Image:
     if SCALE > 1:
         return draw_layout_scaled(data)
@@ -239,15 +267,24 @@ def draw_layout(data: ClockData) -> Image.Image:
 
     centered_text(draw, WIDTH // 2, HEADER_Y, data.greeting or greeting_for(data.now), title)
 
-    y = wrapped_centered(draw, WIDTH // 2, UPPER_TEXT_Y, data.upper_text, quote_font, width=24, line_gap=48, max_lines=UPPER_MAX_LINES)
-    if data.upper_author:
-        centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.upper_author}", author_font)
+    centered_wrapped_block(
+        draw,
+        WIDTH // 2,
+        UPPER_SECTION_TOP,
+        UPPER_SECTION_BOTTOM,
+        data.upper_text,
+        quote_font,
+        width=24,
+        line_gap=48,
+        max_lines=UPPER_MAX_LINES,
+        author=f"- {data.upper_author}" if data.upper_author else "",
+        author_typeface=author_font,
+        author_gap=UPPER_AUTHOR_GAP,
+    )
 
     y = wrapped_centered(draw, WIDTH // 2, 494, data.lower_text, body, width=30, line_gap=34, max_lines=5)
     if data.lower_author:
         centered_text(draw, WIDTH // 2, min(y + 4, 680), data.lower_author, font(18, italic=True))
-
-    draw_layout_borders(draw)
 
     image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=120, threshold=3))
     return image
@@ -264,18 +301,20 @@ def draw_layout_scaled(data: ClockData) -> Image.Image:
 
     centered_text(draw, WIDTH * SCALE // 2, HEADER_Y * SCALE, data.greeting or greeting_for(data.now), title)
 
-    y = wrapped_centered(
+    centered_wrapped_block(
         draw,
         WIDTH * SCALE // 2,
-        UPPER_TEXT_Y * SCALE,
+        UPPER_SECTION_TOP * SCALE,
+        UPPER_SECTION_BOTTOM * SCALE,
         data.upper_text,
         quote_font,
         width=24,
         line_gap=48 * SCALE,
         max_lines=UPPER_MAX_LINES,
+        author=f"- {data.upper_author}" if data.upper_author else "",
+        author_typeface=author_font,
+        author_gap=UPPER_AUTHOR_GAP * SCALE,
     )
-    if data.upper_author:
-        centered_text(draw, WIDTH * SCALE // 2, min(y + 8 * SCALE, 450 * SCALE), f"- {data.upper_author}", author_font)
 
     y = wrapped_centered(
         draw,
@@ -289,8 +328,6 @@ def draw_layout_scaled(data: ClockData) -> Image.Image:
     )
     if data.lower_author:
         centered_text(draw, WIDTH * SCALE // 2, min(y + 4 * SCALE, 680 * SCALE), data.lower_author, font(18 * SCALE, italic=True))
-
-    draw_layout_borders(draw, SCALE)
 
     image = image.resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
     image = image.filter(ImageFilter.UnsharpMask(radius=0.6, percent=80, threshold=4))
