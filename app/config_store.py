@@ -25,6 +25,7 @@ class WeatherConfig(BaseModel):
 
 ContentSource = Literal[
     "daily_author_quote",
+    "quotes_from_literature",
     "daily_bible_verse",
     "daily_psalm",
     "today_in_history",
@@ -65,10 +66,10 @@ class DisplayConfig(BaseModel):
     )
     lower: SectionConfig = Field(
         default_factory=lambda: SectionConfig(
-            source="on_this_day_literature",
-            title="On This Day in Literature",
-            text="In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday.",
-            author="",
+            source="quotes_from_literature",
+            title="Quotes from Literature",
+            text="There is no charm equal to tenderness of heart.",
+            author="Jane Austen, Emma",
         )
     )
     footer_left: str = "~ i ~"
@@ -111,10 +112,10 @@ class AppConfig(BaseModel):
                     author="Jane Austen",
                 ),
                 lower=SectionConfig(
-                    source="on_this_day_literature",
-                    title="On This Day in Literature",
-                    text="In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday.",
-                    author="",
+                    source="quotes_from_literature",
+                    title="Quotes from Literature",
+                    text="There is no charm equal to tenderness of heart.",
+                    author="Jane Austen, Emma",
                 ),
             ),
         }

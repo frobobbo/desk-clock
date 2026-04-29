@@ -37,6 +37,37 @@ _PSALM_READINGS = [
     "Psalm 91:1-2",
 ]
 
+_LITERATURE_QUOTES = [
+    {
+        "text": "There is no charm equal to tenderness of heart.",
+        "author": "Jane Austen, Emma",
+    },
+    {
+        "text": "We are such stuff as dreams are made on.",
+        "author": "William Shakespeare, The Tempest",
+    },
+    {
+        "text": "Whatever our souls are made of, his and mine are the same.",
+        "author": "Emily Bronte, Wuthering Heights",
+    },
+    {
+        "text": "It is nothing to die; it is dreadful not to live.",
+        "author": "Victor Hugo, Les Miserables",
+    },
+    {
+        "text": "The world is full of obvious things which nobody by any chance ever observes.",
+        "author": "Arthur Conan Doyle, The Hound of the Baskervilles",
+    },
+    {
+        "text": "I am no bird; and no net ensnares me.",
+        "author": "Charlotte Bronte, Jane Eyre",
+    },
+    {
+        "text": "And now that you don't have to be perfect, you can be good.",
+        "author": "John Steinbeck, East of Eden",
+    },
+]
+
 
 def resolve_display_content(display: DisplayConfig, settings: SettingsConfig | None = None) -> DisplayConfig:
     resolved = display.model_copy(deep=True)
@@ -70,6 +101,8 @@ def resolve_quote(quote: QuoteConfig, settings: SettingsConfig | None = None) ->
 def _fetch_quote(source: str, fallback: QuoteConfig, settings: SettingsConfig | None = None) -> QuoteConfig:
     if source == "daily_author_quote":
         return _fetch_zenquotes_today(fallback)
+    if source == "quotes_from_literature":
+        return _fetch_literature_quote(fallback)
     if source == "daily_bible_verse":
         return _fetch_bible_reference(_daily_pick(_BIBLE_VERSES), "Daily Bible Verse", source, fallback)
     if source == "daily_psalm":
@@ -96,6 +129,17 @@ def _fetch_zenquotes_today(fallback: QuoteConfig) -> QuoteConfig:
         title=fallback.title or "Daily Quote",
         text=_clean_text(item["q"]),
         author=_clean_text(item["a"]),
+    )
+
+
+def _fetch_literature_quote(fallback: QuoteConfig) -> QuoteConfig:
+    item = _daily_pick(_LITERATURE_QUOTES)
+    return QuoteConfig(
+        enabled=fallback.enabled,
+        source="quotes_from_literature",
+        title=fallback.title or "Quotes from Literature",
+        text=_clean_text(item["text"]),
+        author=_clean_text(item["author"]),
     )
 
 

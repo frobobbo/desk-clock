@@ -90,10 +90,10 @@ function defaultUpperSection() {
 function defaultLowerSection() {
   return {
     enabled: true,
-    source: "on_this_day_literature",
-    title: "On This Day in Literature",
-    text: "In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday.",
-    author: "",
+    source: "quotes_from_literature",
+    title: "Quotes from Literature",
+    text: "There is no charm equal to tenderness of heart.",
+    author: "Jane Austen, Emma",
   };
 }
 

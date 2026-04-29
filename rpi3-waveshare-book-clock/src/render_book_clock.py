@@ -47,9 +47,9 @@ class ClockData:
     upper_title: str = "LITERARY QUOTE OF THE DAY"
     upper_text: str = "I declare after all there is no enjoyment like reading!"
     upper_author: str = "Jane Austen"
-    lower_title: str = "ON THIS DAY IN LITERATURE"
-    lower_text: str = "In 1616, Shakespeare died in Stratford-upon-Avon on his 52nd birthday."
-    lower_author: str = ""
+    lower_title: str = "QUOTES FROM LITERATURE"
+    lower_text: str = "There is no charm equal to tenderness of heart."
+    lower_author: str = "Jane Austen, Emma"
 
 
 def greeting_for(now: datetime) -> str:
