@@ -31,9 +31,16 @@ INK = 28
 MID = 122
 PAPER = 236
 DEFAULT_TIMEZONE = "America/New_York"
+QUARTER_INCH = 25
+HEADER_Y = 74 - QUARTER_INCH
+HEADER_TOP = 56 - QUARTER_INCH
+HEADER_BOTTOM = 126
+UPPER_TOP = HEADER_BOTTOM
+UPPER_TEXT_Y = 154
+UPPER_FONT_SIZE = 33
 LAYOUT_SECTIONS = {
-    "header": (52, 56, WIDTH - 52, 126),
-    "upper": (46, 170, WIDTH - 46, 470),
+    "header": (52, HEADER_TOP, WIDTH - 52, HEADER_BOTTOM),
+    "upper": (46, UPPER_TOP, WIDTH - 46, 470),
     "lower": (46, 476, WIDTH - 46, 708),
 }
 
@@ -225,13 +232,13 @@ def draw_layout(data: ClockData) -> Image.Image:
 
     draw = ImageDraw.Draw(image)
     title = font(31, bold=True)
-    quote_font = font(35)
+    quote_font = font(UPPER_FONT_SIZE)
     author_font = font(23)
     body = font(23)
 
-    centered_text(draw, WIDTH // 2, 74, data.greeting or greeting_for(data.now), title)
+    centered_text(draw, WIDTH // 2, HEADER_Y, data.greeting or greeting_for(data.now), title)
 
-    y = wrapped_centered(draw, WIDTH // 2, 198, data.upper_text, quote_font, width=24, line_gap=48, max_lines=4)
+    y = wrapped_centered(draw, WIDTH // 2, UPPER_TEXT_Y, data.upper_text, quote_font, width=24, line_gap=48, max_lines=4)
     if data.upper_author:
         centered_text(draw, WIDTH // 2, min(y + 8, 450), f"- {data.upper_author}", author_font)
 
@@ -250,16 +257,16 @@ def draw_layout_scaled(data: ClockData) -> Image.Image:
     draw = ImageDraw.Draw(image)
 
     title = font(31 * SCALE, bold=True)
-    quote_font = font(35 * SCALE, weight=560)
+    quote_font = font(UPPER_FONT_SIZE * SCALE, weight=560)
     author_font = font(23 * SCALE, weight=540)
     body = font(23 * SCALE, weight=540)
 
-    centered_text(draw, WIDTH * SCALE // 2, 74 * SCALE, data.greeting or greeting_for(data.now), title)
+    centered_text(draw, WIDTH * SCALE // 2, HEADER_Y * SCALE, data.greeting or greeting_for(data.now), title)
 
     y = wrapped_centered(
         draw,
         WIDTH * SCALE // 2,
-        198 * SCALE,
+        UPPER_TEXT_Y * SCALE,
         data.upper_text,
         quote_font,
         width=24,

@@ -97,7 +97,7 @@ def _fetch_zenquotes_today(fallback: QuoteConfig) -> QuoteConfig:
 
 
 def _fetch_bible_reference(reference: str, title: str, source: str, fallback: QuoteConfig) -> QuoteConfig:
-    data = _get_json(f"https://bible-api.com/{quote(reference)}?translation=web")
+    data = _get_json(f"https://bible-api.com/{quote(reference)}?translation=kjv")
     text = _clean_bible_text(data["text"])
     return QuoteConfig(
         enabled=fallback.enabled,
