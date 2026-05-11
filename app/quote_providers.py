@@ -18,7 +18,7 @@ from .weather_providers import resolve_weather
 
 _CACHE: dict[tuple[str, str, str, str], QuoteConfig] = {}
 ESV_API_URL = "https://api.esv.org/v3/passage/text/"
-RANDOM_PSALM_URL = "https://bible-api.com/data/web/random/PSA"
+YOURPSALM_URL = "http://yourpsalm.com/"
 LITQUOTES_DAILY_URL = "https://www.litquotes.com/DailyQuote.php"
 PROVIDER_ERRORS = (TimeoutError, URLError, ValueError, KeyError, TypeError, OSError, IndexError, AttributeError)
 
@@ -333,7 +333,7 @@ def _fetch_daily_psalm(fallback: QuoteConfig, settings: SettingsConfig | None = 
     fallback_error: BaseException | None = None
     if esv_api_key:
         try:
-            reference = _fetch_random_psalm_reference()
+            reference = _fetch_yourpsalm_reference()
             return _fetch_esv_reference(reference, "Daily Psalm", "daily_psalm", fallback, esv_api_key)
         except PROVIDER_ERRORS as exc:
             fallback_error = exc
@@ -345,7 +345,7 @@ def _fetch_daily_psalm(fallback: QuoteConfig, settings: SettingsConfig | None = 
             {
                 "fallback_used": True,
                 "fallback_reason": _debug_error(fallback_error),
-                "attempted_endpoint": f"{RANDOM_PSALM_URL} -> {ESV_API_URL}",
+                "attempted_endpoint": f"{YOURPSALM_URL} -> {ESV_API_URL}",
             }
         )
     elif not esv_api_key:
@@ -359,23 +359,18 @@ def _fetch_daily_psalm(fallback: QuoteConfig, settings: SettingsConfig | None = 
     return quote
 
 
-def _fetch_random_psalm_reference() -> str:
-    data = _get_json(RANDOM_PSALM_URL)
-    if not isinstance(data, dict):
-        raise ValueError("random Psalm response was not an object")
-    verse = data.get("random_verse") or data.get("verse") or data
-    if not isinstance(verse, dict):
-        raise ValueError("random Psalm verse was not an object")
-    book = str(verse.get("book") or verse.get("book_name") or "Psalm")
-    chapter = int(verse["chapter"])
-    verse_number = int(verse["verse"])
-    if verse.get("book_id") and str(verse["book_id"]).upper() != "PSA":
-        raise ValueError("random verse was not from Psalms")
-    return f"{_normalize_psalm_book_name(book)} {chapter}:{verse_number}"
+def _fetch_yourpsalm_reference() -> str:
+    html = _get_text(YOURPSALM_URL)
+    text = _html_to_text(html)
+    match = re.search(r"\bPsalms?\s+(\d{1,3})(?::(\d{1,3}(?:\s*[-–]\s*\d{1,3})?))?\b", text, flags=re.IGNORECASE)
+    if not match:
+        raise ValueError("YourPsalm reference not found")
 
-
-def _normalize_psalm_book_name(book: str) -> str:
-    return "Psalm" if book.strip().lower() in {"psalm", "psalms", "psa"} else book.strip()
+    chapter = int(match.group(1))
+    verse = (match.group(2) or "").replace(" ", "").replace("–", "-")
+    if chapter < 1 or chapter > 150:
+        raise ValueError(f"YourPsalm chapter out of range: {chapter}")
+    return f"Psalm {chapter}:{verse}" if verse else f"Psalm {chapter}"
 
 
 def _esv_api_key(settings: SettingsConfig | None = None) -> str:
