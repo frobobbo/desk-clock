@@ -4,6 +4,7 @@ import json
 import os
 import re
 from copy import deepcopy
+from datetime import datetime, timedelta
 from html import unescape
 from typing import Any
 from urllib.error import URLError
@@ -16,7 +17,9 @@ from .time_utils import now
 from .weather_providers import resolve_weather
 
 
-_CACHE: dict[tuple[str, str, str, str], QuoteConfig] = {}
+_CACHE: dict[tuple[str, str, str, str], tuple[QuoteConfig, datetime]] = {}
+DEFAULT_QUOTE_CACHE_TTL = timedelta(days=1)
+LITQUOTES_CACHE_TTL = timedelta(minutes=30)
 ESV_API_URL = "https://api.esv.org/v3/passage/text/"
 YOURPSALM_URL = "http://yourpsalm.com/"
 LITQUOTES_DAILY_URL = "https://www.litquotes.com/DailyQuote.php"
@@ -194,9 +197,12 @@ def resolve_display_content(display: DisplayConfig, settings: SettingsConfig | N
 def resolve_quote(quote: QuoteConfig, settings: SettingsConfig | None = None) -> QuoteConfig:
     esv_api_key = _esv_api_key(settings)
     cache_key = (_today_key(), quote.source, quote.title, esv_api_key)
+    current = now()
     cached = _CACHE.get(cache_key)
     if cached:
-        return cached.model_copy(deep=True)
+        cached_quote, cached_at = cached
+        if current - cached_at < _cache_ttl(quote.source):
+            return cached_quote.model_copy(deep=True)
 
     try:
         quote_config = _fetch_quote(quote.source, quote, settings)
@@ -210,8 +216,14 @@ def resolve_quote(quote: QuoteConfig, settings: SettingsConfig | None = None) ->
             fallback_reason=_debug_error(exc),
         )
 
-    _CACHE[cache_key] = quote_config.model_copy(deep=True)
+    _CACHE[cache_key] = (quote_config.model_copy(deep=True), current)
     return quote_config
+
+
+def _cache_ttl(source: str) -> timedelta:
+    if source == "quotes_from_literature":
+        return LITQUOTES_CACHE_TTL
+    return DEFAULT_QUOTE_CACHE_TTL
 
 
 def _fetch_quote(source: str, fallback: QuoteConfig, settings: SettingsConfig | None = None) -> QuoteConfig:
